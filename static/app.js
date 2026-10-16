@@ -4,6 +4,7 @@ const esc = (value) => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;
 const PROPERTY = "MOTOR CARRIER OF PROPERTY (EXCEPT HOUSEHOLD GOODS)";
 const ENTERPRISE = "ENTERPRISE " + PROPERTY;
 const HHG = "MOTOR CARRIER OF HOUSEHOLD GOODS";
+const ENTERPRISE_HHG = "ENTERPRISE " + HHG;
 let files = [], result = null, jobId = null, token = "", busy = false, view = "relevant", page = 0, polling = 0, cancelRequested = false;
 const pageSize = 25;
 
@@ -140,9 +141,13 @@ $("#clear").addEventListener("click", async () => {
 });
 
 function effective(lead) {
-  if (!lead.categories.includes(PROPERTY) && !lead.categories.includes(ENTERPRISE) && lead.categories.includes(HHG)) {
+  const isMoverOnly = !lead.categories.includes(PROPERTY) && !lead.categories.includes(ENTERPRISE) && (lead.categories.includes(HHG) || lead.categories.includes(ENTERPRISE_HHG));
+  if (isMoverOnly) {
+    const isEnterprise = lead.categories.includes(ENTERPRISE_HHG) && !lead.categories.includes(HHG);
     return $("#movers").checked
-      ? {...lead, decision:"relevant", reason:"Household-goods motor carrier; movers enabled. Confirm your dispatch service fit."}
+      ? {...lead, decision:"relevant", reason: isEnterprise
+          ? "Enterprise household-goods motor carrier; movers enabled. Confirm international operating scope and service fit."
+          : "Household-goods motor carrier; movers enabled. Confirm your dispatch service fit."}
       : {...lead, decision:"excluded", reason:"Household-goods mover; excluded because the movers option is off."};
   }
   return lead;

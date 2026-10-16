@@ -18,11 +18,15 @@ from typing import Callable
 import pdfplumber
 
 PROPERTY = "MOTOR CARRIER OF PROPERTY (EXCEPT HOUSEHOLD GOODS)"
-ENTERPRISE = "ENTERPRISE " + PROPERTY
+ENTERPRISE_PROPERTY = "ENTERPRISE " + PROPERTY
+ENTERPRISE = ENTERPRISE_PROPERTY
 HHG = "MOTOR CARRIER OF HOUSEHOLD GOODS"
+ENTERPRISE_HHG = "ENTERPRISE " + HHG
 PASSENGERS = "MOTOR CARRIER OF PASSENGERS"
+ENTERPRISE_PASSENGERS = "ENTERPRISE " + PASSENGERS
 CATEGORIES = (
-    PROPERTY, ENTERPRISE, HHG, PASSENGERS,
+    PROPERTY, ENTERPRISE_PROPERTY, HHG, ENTERPRISE_HHG,
+    PASSENGERS, ENTERPRISE_PASSENGERS,
     "BROKER OF PROPERTY (EXCEPT HOUSEHOLD GOODS)",
     "BROKER OF HOUSEHOLD GOODS",
     "FREIGHT FORWARDER OF PROPERTY (EXCEPT HOUSEHOLD GOODS)",
@@ -156,13 +160,16 @@ def classify(categories: list[str], include_movers: bool = True) -> tuple[str, s
     if PROPERTY in categories:
         extra = " Also has other category listings; review those before outreach." if len(categories) > 1 else ""
         return "relevant", "Listed as a property/freight motor carrier. Confirm equipment and dispatch need." + extra
-    if include_movers and HHG in categories:
+    if ENTERPRISE_PROPERTY in categories:
+        extra = " Also has other category listings; review those before outreach." if len(categories) > 1 else ""
+        return "relevant", "Enterprise property carrier; potential dispatch fit. Confirm international-cargo operating scope and service fit." + extra
+    if include_movers and (HHG in categories or ENTERPRISE_HHG in categories):
+        if ENTERPRISE_HHG in categories and HHG not in categories:
+            return "relevant", "Enterprise household-goods motor carrier; included because movers were enabled. Confirm international operating scope and service fit."
         return "relevant", "Household-goods motor carrier; included because movers were enabled. Confirm your service fit."
-    if ENTERPRISE in categories:
-        return "relevant", "Enterprise property carrier; potential dispatch fit. Confirm international-cargo operating scope and service fit."
-    if HHG in categories:
+    if HHG in categories or ENTERPRISE_HHG in categories:
         return "excluded", "Household-goods mover; excluded because the movers option is off."
-    if PASSENGERS in categories:
+    if PASSENGERS in categories or ENTERPRISE_PASSENGERS in categories:
         return "excluded", "Passenger operator; outside freight dispatch."
     if any(c.startswith("BROKER") for c in categories):
         return "excluded", "Broker listing with no property motor-carrier listing in these uploads."
@@ -180,13 +187,15 @@ def combine(documents: list[dict], include_movers: bool = True) -> dict:
     for dot, evidence in grouped.items():
         # Prefer the newest property-carrier record for contact details; preserve all variants below.
         ordered = sorted(evidence, key=lambda r: (
-            r["category"] == PROPERTY, r["register_date"],
+            r["category"] in (PROPERTY, ENTERPRISE_PROPERTY),
+            r["category"] in (HHG, ENTERPRISE_HHG),
+            r["register_date"],
             datetime.strptime(r["filing_date"], "%m/%d/%Y")), reverse=True)
         categories = sorted({r["category"] for r in evidence})
         decision, reason = classify(categories, include_movers)
         chosen = ordered[0]
         flags = []
-        if ENTERPRISE in categories:
+        if any(c.startswith("ENTERPRISE") for c in categories):
             flags.append("Enterprise carrier: verify authorized international-cargo scope before offering loads.")
         for field, label in (("name", "business names"), ("address", "addresses"), ("phone", "phone numbers")):
             if len({r[field].casefold() for r in evidence if r[field]}) > 1:

@@ -9,7 +9,8 @@ from pathlib import Path
 
 import pdfplumber
 
-from extractor import (ENTERPRISE, HHG, PROPERTY, RegisterError, Cancelled,
+from extractor import (ENTERPRISE, ENTERPRISE_HHG, ENTERPRISE_PASSENGERS,
+                       HHG, PROPERTY, RegisterError, Cancelled,
                        classify, combine, csv_text, extract_pdf)
 
 
@@ -19,6 +20,9 @@ class RulesTests(unittest.TestCase):
         self.assertEqual(classify([ENTERPRISE])[0], "relevant")
         self.assertEqual(classify([HHG], False)[0], "excluded")
         self.assertEqual(classify([HHG], True)[0], "relevant")
+        self.assertEqual(classify([ENTERPRISE_HHG], False)[0], "excluded")
+        self.assertEqual(classify([ENTERPRISE_HHG], True)[0], "relevant")
+        self.assertEqual(classify([ENTERPRISE_PASSENGERS])[0], "excluded")
         for category in ("BROKER OF PROPERTY (EXCEPT HOUSEHOLD GOODS)",
                          "FREIGHT FORWARDER OF PROPERTY (EXCEPT HOUSEHOLD GOODS)",
                          "MOTOR CARRIER OF PASSENGERS"):
@@ -102,6 +106,32 @@ class SuppliedRegisterTests(unittest.TestCase):
     def test_cancellation_has_no_partial_result(self):
         with self.assertRaises(Cancelled):
             extract_pdf(FILES[0].read_bytes(), FILES[0].name, cancelled=lambda:True)
+
+
+JULY_FILE = Path.home() / "Downloads" / "REGISTER20260708.pdf"
+
+
+@unittest.skipUnless(JULY_FILE.exists(), "July register PDF is not installed")
+class JulyRegisterTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.document = extract_pdf(JULY_FILE.read_bytes(), JULY_FILE.name)
+        cls.result = combine([cls.document])
+        cls.leads = {r["dot"]: r for r in cls.result["leads"]}
+
+    def test_extracts_enterprise_hhg_correctly(self):
+        self.assertEqual(self.document["pages"], 19)
+        self.assertEqual(len(self.document["records"]), 408)
+        self.assertIn("4790559", self.leads)
+        lead = self.leads["4790559"]
+        self.assertEqual(lead["name"], "KYL Logistics LLC")
+        self.assertEqual(lead["categories"], [ENTERPRISE_HHG])
+        self.assertEqual(lead["decision"], "relevant")
+        self.assertTrue(any("Enterprise carrier" in f for f in lead["flags"]))
+
+        movers_off = combine([self.document], include_movers=False)
+        leads_off = {r["dot"]: r for r in movers_off["leads"]}
+        self.assertEqual(leads_off["4790559"]["decision"], "excluded")
 
 
 if __name__ == "__main__":
