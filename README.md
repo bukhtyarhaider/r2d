@@ -64,5 +64,5 @@ The optional source regression uses the supplied PDFs if present in `~/Downloads
 
 ## Developer
 
-Developed by **Bukhtyar Haider Khan** (<bukhtyar.haider1@gmail.com>).
+Developed by **Bukhtyar Haider** (<bukhtyar.haider1@gmail.com>).
 

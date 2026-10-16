@@ -1,7 +1,7 @@
 @echo off
 :: ============================================================================
 :: Dispatch Register - Startup Script (Windows)
-:: Developer: Bukhtyar Haider Khan
+:: Developer: Bukhtyar Haider
 :: Contact:   bukhtyar.haider1@gmail.com
 :: ============================================================================
 setlocal
@@ -9,7 +9,7 @@ cd /d "%~dp0"
 
 echo ===================================================
 echo  Dispatch Register
-echo  Developer: Bukhtyar Haider Khan
+echo  Developer: Bukhtyar Haider
 echo ===================================================
 echo.
 

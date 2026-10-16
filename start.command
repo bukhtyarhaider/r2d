@@ -1,7 +1,7 @@
 #!/bin/zsh
 # ============================================================================
 # Dispatch Register - Startup Script (macOS)
-# Developer: Bukhtyar Haider Khan
+# Developer: Bukhtyar Haider
 # Contact:   bukhtyar.haider1@gmail.com
 # ============================================================================
 set -e
@@ -9,7 +9,7 @@ cd "${0:A:h}"
 
 echo "==================================================="
 echo " Dispatch Register"
-echo " Developer: Bukhtyar Haider Khan"
+echo " Developer: Bukhtyar Haider"
 echo "==================================================="
 echo ""
 

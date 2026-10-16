@@ -1,4 +1,4 @@
-"""Local-only UI for Dispatch Register. Run: python app.py"""
+"""Local-only UI for Dispatch Register. Developer: Bukhtyar Haider. Run: python app.py"""
 from __future__ import annotations
 
 import argparse
@@ -166,7 +166,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Local dispatch prospect extractor")
+    parser = argparse.ArgumentParser(description="Local dispatch prospect extractor · Developer: Bukhtyar Haider")
     parser.add_argument("--port", type=int, default=8765)
     parser.add_argument("--no-browser", action="store_true")
     args = parser.parse_args()
@@ -174,7 +174,7 @@ def main():
         server = ThreadingHTTPServer(("127.0.0.1", args.port), Handler)
     except OSError as error:
         parser.exit(1, f"Could not start: {error}. Try --port 8766.\n")
-    print(f"Dispatch Register is ready at http://127.0.0.1:{server.server_port}\nPress Ctrl+C to stop.", flush=True)
+    print(f"Dispatch Register · Developed by Bukhtyar Haider\nReady at http://127.0.0.1:{server.server_port}\nPress Ctrl+C to stop.", flush=True)
     if not args.no_browser:
         threading.Timer(0.4, lambda: webbrowser.open(f"http://127.0.0.1:{server.server_port}")).start()
     try:
