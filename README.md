@@ -4,13 +4,12 @@ A small local tool for turning FMCSA Register application PDFs into a deduplicat
 
 ## Start
 
-Requires Python 3.10 or newer. On macOS, double-click **start.command**, or run:
+Requires Python 3.10 or newer.
 
-```sh
-./start.command
-```
+- **macOS**: double-click **start.command**, or run `./start.command`
+- **Windows**: double-click **start.bat**, or run `start.bat`
 
-First launch installs dependencies in `.venv` (internet needed once). Later launches work offline. The browser opens at **http://127.0.0.1:8765**. Keep the terminal open; Ctrl+C stops the tool. If the port is occupied: `./start.command --port 8766`.
+First launch installs dependencies in `.venv` (internet needed once). Later launches work offline. The browser opens at **http://127.0.0.1:8765**. Keep the terminal open; Ctrl+C stops the tool. If the port is occupied: `./start.command --port 8766` (macOS) or `start.bat --port 8766` (Windows).
 
 Manual setup (also works on Windows/Linux):
 
@@ -21,7 +20,7 @@ python -m pip install -r requirements.txt
 python app.py
 ```
 
-On Windows, use `py -m venv .venv`, then `.venv\Scripts\activate`.
+On Windows with manual setup, use `py -m venv .venv`, then `.venv\Scripts\activate`.
 
 ## Use
 
