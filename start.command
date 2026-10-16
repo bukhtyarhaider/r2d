@@ -1,6 +1,18 @@
 #!/bin/zsh
+# ============================================================================
+# Dispatch Register - Startup Script (macOS)
+# Developer: Bukhtyar Haider Khan
+# Contact:   bukhtyar.haider1@gmail.com
+# ============================================================================
 set -e
 cd "${0:A:h}"
+
+echo "==================================================="
+echo " Dispatch Register"
+echo " Developer: Bukhtyar Haider Khan"
+echo "==================================================="
+echo ""
+
 if [[ ! -x .venv/bin/python ]]; then
   echo "First-time setup: creating a local Python environment…"
   python3 -m venv .venv

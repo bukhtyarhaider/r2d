@@ -1,6 +1,17 @@
 @echo off
+:: ============================================================================
+:: Dispatch Register - Startup Script (Windows)
+:: Developer: Bukhtyar Haider Khan
+:: Contact:   bukhtyar.haider1@gmail.com
+:: ============================================================================
 setlocal
 cd /d "%~dp0"
+
+echo ===================================================
+echo  Dispatch Register
+echo  Developer: Bukhtyar Haider Khan
+echo ===================================================
+echo.
 
 if not exist ".venv\Scripts\python.exe" (
     echo First-time setup: creating a local Python environment...

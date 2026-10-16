@@ -61,3 +61,8 @@ Writes `dispatch-leads.csv`, `dot-numbers.txt`, `all-records.csv`, and `extracti
 ```
 
 The optional source regression uses the supplied PDFs if present in `~/Downloads`. It checks extraction counts, category decisions, source references, page continuations, and contact cells against known examples.
+
+## Developer
+
+Developed by **Bukhtyar Haider Khan** (<bukhtyar.haider1@gmail.com>).
+
