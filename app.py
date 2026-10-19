@@ -20,9 +20,26 @@ ROOT = Path(__file__).resolve().parent
 TOKEN = secrets.token_urlsafe(32)
 JOBS: dict = {}
 LOCK = threading.RLock()
-MAX_BODY = 100 * 1024 * 1024
+MAX_FILES = 40
+MAX_BODY = 200 * 1024 * 1024
 TTL = 3600
 HISTORY = History(ROOT / "output" / "history.sqlite3", ROOT / "output" / "extraction-audit.json")
+
+
+def job_snapshot(job):
+    now = time.monotonic()
+    result = {k: v for k, v in job.items() if k not in ("cancel", "created", "updated", "result")}
+    result.update(elapsed_seconds=round(now - job.get("created", now), 1),
+                  idle_seconds=round(now - job.get("updated", job.get("created", now)), 1))
+    return result
+
+
+def trim_jobs():
+    # Job receipts are temporary; completed receipts must never block new imports.
+    terminal = sorted((key for key, job in JOBS.items() if job["status"] != "running"),
+                      key=lambda key: JOBS[key]["created"], reverse=True)
+    for key in terminal[9:]:
+        JOBS.pop(key, None)
 
 
 def work(job, files):
@@ -32,28 +49,30 @@ def work(job, files):
             def progress(page, pages, name):
                 with LOCK:
                     job.update(file=name, file_index=index + 1, page=page, pages=pages,
+                               phase="reading", updated=time.monotonic(),
                                message=f"Reading {name} · page {page} of {pages}")
             document = extract_pdf(data, filename, progress, job["cancel"].is_set)
             documents.append(document)
         with LOCK:
             if job["cancel"].is_set():
                 raise Cancelled()
-            job.update(message="Saving records to local history…")
-        # The database serializes competing writers and commits only a complete batch.
-        # Hold LOCK through commit so cancellation cannot acknowledge an unsaved batch.
+            job.update(phase="saving", updated=time.monotonic(), message="Saving records to local history…")
+        # Leave progress requests responsive during a potentially large database save.
+        # Cancellation is rejected once this atomic commit phase has started.
+        result, imported = HISTORY.add(documents)
         with LOCK:
-            if job["cancel"].is_set():
-                raise Cancelled()
-            result, imported = HISTORY.add(documents)
-            job.update(status="complete", result=result, imported=imported,
+            job.update(status="complete", phase="complete", updated=time.monotonic(),
+                       summary=result["summary"], imported=imported,
                        message="Extraction saved to local history")
     except Cancelled:
         with LOCK:
-            job.update(status="cancelled", message="Extraction cancelled. Select Extract to try again.")
+            job.update(status="cancelled", phase="cancelled", updated=time.monotonic(),
+                       message="Extraction cancelled. Select Extract to try again.")
     except Exception as error:
         with LOCK:
             message = str(error) if isinstance(error, RegisterError) else "The PDF could not be read. It may be damaged or encrypted."
-            job.update(status="error", message=f"{filename}: {message} No records from this batch were added; earlier history is unchanged.")
+            job.update(status="error", phase="error", updated=time.monotonic(),
+                       message=f"{filename}: {message} No records from this batch were added; earlier history is unchanged.")
     finally:
         files.clear()
 
@@ -87,12 +106,21 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path == "/api/session":
             return self.send(200, {"token": TOKEN})
+        if path == "/api/activity":
+            with LOCK:
+                active = next((key for key, job in JOBS.items() if job["status"] == "running"), None)
+                latest = max(JOBS, key=lambda key: JOBS[key]["created"], default=None)
+                snapshot = {"active_job": active,
+                            "latest_job": {"id": latest, **job_snapshot(JOBS[latest])} if latest else None}
+            snapshot["revision"] = HISTORY.revision()
+            return self.send(200, snapshot)
         if path == "/api/history":
             try:
+                revision = HISTORY.revision()
+                result = HISTORY.load()
                 with LOCK:
-                    result = HISTORY.load()
                     active = next((key for key, job in JOBS.items() if job["status"] == "running"), None)
-                return self.send(200, {"result": result, "active_job": active})
+                return self.send(200, {"result": result, "active_job": active, "revision": revision})
             except HistoryError as error:
                 return self.send(500, {"error": str(error)})
         if path.startswith("/api/jobs/"):
@@ -104,7 +132,7 @@ class Handler(BaseHTTPRequestHandler):
                     job = None
                 if not job:
                     return self.send(404, {"error": "This extraction session expired. Saved records are still in local history; refresh to reload them."})
-                return self.send(200, {k: v for k, v in job.items() if k not in ("cancel", "created")})
+                return self.send(200, job_snapshot(job))
         asset = {"/": "index.html", "/styles.css": "styles.css", "/app.js": "app.js"}.get(path)
         if not asset:
             return self.send(404, {"error": "Not found"})
@@ -152,6 +180,8 @@ class Handler(BaseHTTPRequestHandler):
             with LOCK:
                 job = JOBS.get(key)
                 if job:
+                    if job["status"] == "running" and job.get("phase") == "saving":
+                        return self.send(409, {"error": "The complete batch is being saved. Wait for the save to finish; it cannot be cancelled midway."})
                     job["cancel"].set()
                     if path.endswith("/forget"):
                         JOBS.pop(key)
@@ -164,14 +194,13 @@ class Handler(BaseHTTPRequestHandler):
                     del JOBS[key]
             if any(job["status"] == "running" for job in JOBS.values()):
                 return self.send(409, {"error": "An extraction is already running. Wait for it or cancel it first."})
-            if len(JOBS) >= 10:
-                return self.send(429, {"error": "Clear an earlier session or restart the tool before adding more PDFs."})
+            trim_jobs()
         try:
             size = int(self.headers.get("Content-Length", "0"))
         except ValueError:
             size = 0
         if not 0 < size <= MAX_BODY:
-            return self.send(413, {"error": "Choose PDFs totaling under 100 MB."})
+            return self.send(413, {"error": "Choose PDFs totaling under 200 MB, including upload headers."})
         content_type = self.headers.get("Content-Type", "")
         if not content_type.startswith("multipart/form-data;") or "\r" in content_type or "\n" in content_type:
             return self.send(400, {"error": "Upload PDF files using the file picker."})
@@ -193,14 +222,14 @@ class Handler(BaseHTTPRequestHandler):
                 if len(data) > 25 * 1024 * 1024:
                     raise ValueError(f"{filename}: each PDF must be under 25 MB.")
                 files.append((filename, data))
-            if not 1 <= len(files) <= 20:
-                raise ValueError("Choose between 1 and 20 PDFs.")
+            if not 1 <= len(files) <= MAX_FILES:
+                raise ValueError(f"Choose between 1 and {MAX_FILES} PDFs.")
         except Exception as error:
             return self.send(400, {"error": str(error) if isinstance(error, ValueError) else "Unable to read this upload."})
         key = secrets.token_urlsafe(16)
-        job = {"status": "running", "message": "Preparing PDFs…", "file_count": len(files),
+        job = {"status": "running", "phase": "queued", "message": "Preparing PDFs…", "file_count": len(files),
                "file_index": 0, "page": 0, "pages": 0, "cancel": threading.Event(),
-               "created": time.monotonic()}
+               "created": time.monotonic(), "updated": time.monotonic()}
         with LOCK:
             # Recheck after reading the upload so competing requests cannot run together.
             if any(j["status"] == "running" for j in JOBS.values()):

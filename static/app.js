@@ -3,27 +3,33 @@ const $ = (selector) => document.querySelector(selector);
 const esc = (value) => String(value ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const PROPERTY = "MOTOR CARRIER OF PROPERTY (EXCEPT HOUSEHOLD GOODS)";
 const ENTERPRISE = "ENTERPRISE " + PROPERTY;
+const MEXICO_PROPERTY = "MEXICO DOMICILED " + PROPERTY;
 const HHG = "MOTOR CARRIER OF HOUSEHOLD GOODS";
 const ENTERPRISE_HHG = "ENTERPRISE " + HHG;
 let files = [], result = null, jobId = null, token = "", busy = false, view = "relevant", page = 0, polling = 0, cancelRequested = false;
 let editing = false, pendingDelete = null;
 let selectedDots = new Set(), selectedDocuments = new Set(), undoId = null;
+let liveRevision = null, activityChecking = false, historyRefreshing = false, ready = false;
+let busyPurpose = "extraction", progressSnapshot = null, progressReceived = 0;
 const pageSize = 25;
 
 function feedback(message, error = false) {
   $("#feedback").textContent = message;
   $("#feedback").classList.toggle("error", error);
 }
-function setBusy(value) {
+function setBusy(value, purpose = "extraction") {
   busy = value;
+  busyPurpose = purpose;
   $("#extract").disabled = busy || editing || !files.length;
-  $("#extract").textContent = busy ? "Extracting…" : "Extract prospects ↗";
-  $("#cancel").hidden = !busy;
+  $("#extract").textContent = busy ? purpose === "loading" ? "Loading history…" : "Extracting…" : "Extract prospects ↗";
+  $("#cancel").hidden = !busy || purpose !== "extraction";
   $("#cancel").disabled = false;
   $("#files").disabled = busy || editing;
   $("#progress-area").hidden = !busy;
   $("#clear").disabled = busy || editing;
   $("#open-trash").disabled = busy || editing;
+  $("#library-open-trash").disabled = busy || editing;
+  $("#refresh-history").disabled = editing || historyRefreshing || (busy && !jobId);
   if (result) render();
   renderFiles();
 }
@@ -39,7 +45,7 @@ function addFiles(incoming) {
     if (file.size === 0) return feedback(`${file.name} is empty.`, true);
     if (!next.some(f => f.name === file.name && f.size === file.size && f.lastModified === file.lastModified)) next.push(file);
   }
-  if (next.length > 20 || next.reduce((sum, f) => sum + f.size, 0) > 99 * 1024 * 1024) return feedback("Choose up to 20 PDFs totaling under 99 MB (leaving room for upload headers).", true);
+  if (next.length > 40 || next.reduce((sum, f) => sum + f.size, 0) > 199 * 1024 * 1024) return feedback("Choose up to 40 PDFs totaling under 199 MB (leaving room for upload headers).", true);
   files = next;
   $("#extract").disabled = !files.length;
   renderFiles();
@@ -61,15 +67,110 @@ document.addEventListener("dragover", event => event.preventDefault());
 document.addEventListener("drop", event => event.preventDefault());
 
 async function request(path, options = {}) {
-  const response = await fetch(path, { ...options, headers: { "X-Session-Token": token, ...options.headers } });
-  const data = await response.json();
-  if (!response.ok) {
-    const error = new Error(data.error || "The local tool could not complete this request.");
-    error.status = response.status;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000);
+  try {
+    let response = await fetch(path, { ...options, signal:controller.signal, headers: { "X-Session-Token": token, ...options.headers } });
+    // A 403 definitively rejected the write. Renew a token after a server restart
+    // without discarding the user's file selection; never retry uncertain writes.
+    if (response.status === 403 && path !== "/api/session") {
+      const session = await fetch("/api/session", {signal:controller.signal});
+      if (session.ok) {
+        const fresh = (await session.json()).token;
+        if (fresh && fresh !== token) {
+          token = fresh;
+          response = await fetch(path, { ...options, signal:controller.signal, headers:{"X-Session-Token":token,...options.headers} });
+        }
+      }
+    }
+    const data = await response.json();
+    if (!response.ok) {
+      const error = new Error(data.error || "The local tool could not complete this request.");
+      error.status = response.status;
+      throw error;
+    }
+    return data;
+  } catch (error) {
+    if (error.name === "AbortError") throw new Error("The local server did not respond within 15 seconds. Refresh saved records to check the outcome before trying again.");
     throw error;
-  }
-  return data;
+  } finally { clearTimeout(timeout); }
 }
+function showImportReceipt(status) {
+  if (status.status !== "complete" || !status.imported) return;
+  const imported = status.imported, detail = imported.details || {};
+  const newDots = detail.new_dots ?? 0;
+  let message = imported.added
+    ? `Finished: ${imported.added} new ${imported.added === 1 ? "PDF" : "PDFs"} saved · ${newDots.toLocaleString()} new active ${newDots === 1 ? "DOT" : "DOTs"}.`
+    : "Finished: no new PDFs were added.";
+  if (detail.already_saved) message += ` ${detail.already_saved} already saved.`;
+  if (detail.in_trash) message += ` ${detail.in_trash} in Trash; restore them there to include their records.`;
+  if (detail.hidden_occurrences) message += ` ${detail.hidden_occurrences.toLocaleString()} source occurrences stay excluded by earlier DOT deletions.`;
+  if (imported.added && !newDots && !detail.hidden_occurrences) message += " These PDFs contain DOTs already in your saved list; their source evidence was added.";
+  $("#import-receipt").hidden = false;
+  $("#import-summary").textContent = message;
+  $("#import-files").innerHTML = (detail.files || []).map(file => `<li><strong>${esc(file.filename)}</strong><span>${esc({added:"New PDF saved",already_saved:"Already saved — no duplicate rows added",in_trash:"In Trash — restore to include"}[file.status] || file.status)}</span></li>`).join("");
+  return message;
+}
+function updateProgressHealth() {
+  if (!busy || busyPurpose !== "extraction" || !progressSnapshot) { $("#progress-health").textContent = ""; return; }
+  const delta = (Date.now() - progressReceived) / 1000;
+  const elapsed = Math.floor((progressSnapshot.elapsed_seconds || 0) + delta);
+  const idle = (progressSnapshot.idle_seconds || 0) + delta;
+  let detail = progressSnapshot.phase === "saving" ? "Saving the complete batch; totals update after the save finishes." : "Saved totals update after the complete batch succeeds.";
+  if (delta > 12) detail = "Waiting for a response from the local server. Use Refresh saved records to reconnect.";
+  else if (idle > 12) detail = progressSnapshot.phase === "saving"
+    ? `Server responding · saving has taken ${Math.floor(idle)}s. The complete batch is committed together.`
+    : `Server responding · no page update for ${Math.floor(idle)}s. Cancel stops at the next page boundary.`;
+  $("#progress-health").textContent = `${elapsed}s elapsed · ${detail}`;
+}
+setInterval(updateProgressHealth, 1000);
+function updateSyncStatus(message, error = false) {
+  $("#sync-status").textContent = message;
+  $("#sync-status").classList.toggle("error", error);
+}
+function showRunningStatus(status) {
+  progressSnapshot = status; progressReceived = Date.now();
+  $("#progress-text").textContent = `${status.message} · file ${status.file_index || 1} of ${status.file_count}`;
+  $("#cancel").disabled = status.phase === "saving";
+  if (status.phase === "saving") $("#progress").removeAttribute("value");
+  else if (status.pages) $("#progress").value = Math.min(99, ((status.file_index - 1 + (status.page - 1) / status.pages) / status.file_count) * 100);
+  updateSyncStatus("Extraction in progress · showing the last saved totals");
+  updateProgressHealth();
+}
+async function checkActivity() {
+  if (!ready || activityChecking || historyRefreshing || editing || (busy && !jobId) || document.hidden) return;
+  activityChecking = true;
+  try {
+    const activity = await request("/api/activity");
+    if (activity.active_job && !busy) {
+      jobId = activity.active_job; remember(jobId); setBusy(true); poll(jobId, ++polling);
+    } else if (!busy) {
+      if (activity.revision !== liveRevision) await loadHistory(true);
+      if (activity.latest_job?.status === "complete") showImportReceipt(activity.latest_job);
+      updateSyncStatus(activity.latest_job?.status === "error"
+        ? `No extraction running · last batch failed: ${activity.latest_job.message}`
+        : "Up to date · no extraction running", activity.latest_job?.status === "error");
+    }
+  } catch (error) { updateSyncStatus(`Connection delayed. ${error.message}`, true); }
+  finally { activityChecking = false; }
+}
+setInterval(checkActivity, 5000);
+window.addEventListener("focus", checkActivity);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) checkActivity(); });
+$("#refresh-history").addEventListener("click", async () => {
+  if (historyRefreshing || editing || (busy && !jobId)) return;
+  historyRefreshing = true; $("#refresh-history").disabled = true;
+  $("#refresh-history").textContent = "Refreshing…";
+  try {
+    await loadHistory(true);
+    updateSyncStatus("Saved records refreshed");
+  } catch (error) { updateSyncStatus(error.message, true); }
+  finally {
+    historyRefreshing = false; $("#refresh-history").disabled = false;
+    $("#refresh-history").textContent = "Refresh saved records";
+    checkActivity();
+  }
+});
 function remember(id) {
   try { if (id) sessionStorage.setItem("dispatch-job", id); else sessionStorage.removeItem("dispatch-job"); } catch (_) { /* Storage is optional. */ }
 }
@@ -79,12 +180,11 @@ async function poll(id, generation, failures = 0) {
     const status = await request(`/api/jobs/${id}`);
     if (generation !== polling) return;
     if (status.status === "running") {
-      $("#progress-text").textContent = `${status.message} · file ${status.file_index || 1} of ${status.file_count}`;
-      if (status.pages) $("#progress").value = Math.min(99, ((status.file_index - 1 + (status.page - 1) / status.pages) / status.file_count) * 100);
+      showRunningStatus(status);
       setTimeout(() => poll(id, generation), 500);
     } else if (status.status === "complete") {
       // Read the current library, including imports completed in another tab.
-      result = (await request("/api/history")).result;
+      await loadHistory(true);
       if (generation !== polling) return;
       jobId = id;
       files = []; remember(null);
@@ -92,16 +192,20 @@ async function poll(id, generation, failures = 0) {
       $("#results").hidden = false;
       initializeFilters(); render();
       const imported = status.imported;
-      feedback(`Saved: ${imported.added} new ${imported.added === 1 ? "register" : "registers"}; ${imported.skipped} already in history. ${result.summary.unique.toLocaleString()} unique DOTs in your saved history.`);
+      feedback(showImportReceipt(status) || `Saved ${imported.added} new PDFs.`);
+      updateSyncStatus("Up to date · no extraction running");
     } else {
       setBusy(false); remember(null);
       feedback(status.message, status.status === "error");
+      updateSyncStatus(status.message, status.status === "error");
     }
   } catch (error) {
     if (generation !== polling) return;
     if (error.status === 404) {
       remember(null); jobId = null; setBusy(false);
-      await loadHistory(); feedback(error.message, true); return;
+      try { await loadHistory(true); }
+      catch (reloadError) { updateSyncStatus(reloadError.message, true); }
+      feedback(error.message, true); return;
     }
     if (failures < 4) {
       $("#progress-text").textContent = "Reconnecting to the local tool…";
@@ -116,6 +220,7 @@ $("#extract").addEventListener("click", async () => {
   if (busy || editing || !files.length) return;
   const previousJob = jobId;
   jobId = null; cancelRequested = false;
+  progressSnapshot = null;
   setBusy(true); feedback("");
   $("#progress").removeAttribute("value");
   $("#progress-text").textContent = "Preparing your PDFs…";
@@ -140,7 +245,7 @@ $("#cancel").addEventListener("click", async () => {
 });
 $("#clear").addEventListener("click", async () => {
   if (busy || editing) return;
-  setBusy(true);
+  setBusy(true, "loading");
   $("#progress-text").textContent = "Reloading saved history…";
   try {
     if (jobId) await request(`/api/jobs/${jobId}/forget`, { method:"POST" });
@@ -154,7 +259,7 @@ $("#clear").addEventListener("click", async () => {
 });
 
 function effective(lead) {
-  const isMoverOnly = !lead.categories.includes(PROPERTY) && !lead.categories.includes(ENTERPRISE) && (lead.categories.includes(HHG) || lead.categories.includes(ENTERPRISE_HHG));
+  const isMoverOnly = ![PROPERTY, ENTERPRISE, MEXICO_PROPERTY].some(category => lead.categories.includes(category)) && (lead.categories.includes(HHG) || lead.categories.includes(ENTERPRISE_HHG));
   if (isMoverOnly) {
     const isEnterprise = lead.categories.includes(ENTERPRISE_HHG) && !lead.categories.includes(HHG);
     return $("#movers").checked
@@ -185,6 +290,9 @@ function render() {
   result.leads.forEach(lead => counts[effective(lead).decision]++);
   ["relevant", "review", "excluded"].forEach(key => $("#count-" + key).textContent = counts[key]);
   const s = result.summary;
+  const library = result.library || {saved_registers:result.documents.length,active_registers:result.documents.length,trashed_registers:0,deleted_dots:0};
+  $("#library-summary").textContent = `${library.active_registers} active PDFs of ${library.saved_registers} imported · ${library.trashed_registers} PDFs in Trash · ${library.deleted_dots.toLocaleString()} DOTs excluded by record deletions.`;
+  $("#library-open-trash").hidden = !result.trash.length;
   $("#stats").innerHTML = [[counts.relevant,"Relevant prospects"], [s.unique,"Unique DOT numbers"], [s.duplicates,"Repeated occurrences merged"], [s.pages,"Source pages processed"]].map(([n,label]) => `<div class="stat"><strong>${n.toLocaleString()}</strong><span>${label}</span></div>`).join("");
   document.querySelectorAll("[data-view]").forEach(button => { button.classList.toggle("active", button.dataset.view === view); button.setAttribute("aria-pressed", button.dataset.view === view); });
   const leads = visibleRows();
@@ -332,6 +440,7 @@ function openTrash() {
   $("#trash-dialog").showModal();
 }
 $("#open-trash").addEventListener("click", openTrash);
+$("#library-open-trash").addEventListener("click", openTrash);
 $("#empty-open-trash").addEventListener("click", openTrash);
 $("#close-trash").addEventListener("click", () => $("#trash-dialog").close());
 for (const id of ["delete-dialog", "trash-dialog"]) $("#" + id).addEventListener("cancel", event => { if (editing) event.preventDefault(); });
@@ -416,22 +525,30 @@ $("#export-audit").addEventListener("click", () => {
   download("extraction-audit.json", JSON.stringify({...result, summary:{...result.summary,...counts}, applied_options:{include_movers:$("#movers").checked}, leads}, null, 2), "application/json");
 });
 
-async function loadHistory() {
+async function loadHistory(preserve = false) {
+  const filters = preserve && result ? {search:$("#search").value,category:$("#category").value,country:$("#country").value,view,page} : null;
   const history = await request("/api/history");
   result = history.result;
+  liveRevision = history.revision;
   $("#results").hidden = !result.documents.length && !(result.trash || []).length;
-  initializeFilters(); render();
+  initializeFilters();
+  if (filters) {
+    $("#search").value = filters.search; $("#category").value = filters.category; $("#country").value = filters.country;
+    view = filters.view; page = filters.page;
+  }
+  render();
   return history;
 }
 
 async function init() {
-  setBusy(true);
+  setBusy(true, "loading");
   $("#progress-text").textContent = "Loading your saved local history…";
   try {
     token = (await request("/api/session")).token;
     const history = await loadHistory();
     if (history.active_job) {
       jobId = history.active_job; remember(jobId);
+      setBusy(true);
       $("#progress-text").textContent = "Reconnecting to the current extraction…";
       poll(jobId, ++polling);
     } else {
@@ -441,6 +558,10 @@ async function init() {
   } catch (error) {
     setBusy(false);
     feedback(error.message || "The local server is unavailable. Start the tool, then refresh this page.", true);
+    updateSyncStatus(error.message, true);
+  } finally {
+    ready = true;
+    checkActivity();
   }
 }
 init();

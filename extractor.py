@@ -24,9 +24,11 @@ HHG = "MOTOR CARRIER OF HOUSEHOLD GOODS"
 ENTERPRISE_HHG = "ENTERPRISE " + HHG
 PASSENGERS = "MOTOR CARRIER OF PASSENGERS"
 ENTERPRISE_PASSENGERS = "ENTERPRISE " + PASSENGERS
+MEXICO_PROPERTY = "MEXICO DOMICILED " + PROPERTY
+MEXICO_PRIVATE_PROPERTY = "MEXICO DOMICILED PRIVATE " + PROPERTY
 CATEGORIES = (
     PROPERTY, ENTERPRISE_PROPERTY, HHG, ENTERPRISE_HHG,
-    PASSENGERS, ENTERPRISE_PASSENGERS,
+    PASSENGERS, ENTERPRISE_PASSENGERS, MEXICO_PROPERTY, MEXICO_PRIVATE_PROPERTY,
     "BROKER OF PROPERTY (EXCEPT HOUSEHOLD GOODS)",
     "BROKER OF HOUSEHOLD GOODS",
     "FREIGHT FORWARDER OF PROPERTY (EXCEPT HOUSEHOLD GOODS)",
@@ -35,6 +37,7 @@ CATEGORIES = (
 HEADERS = ("USDOT Number", "Legal Business Name", "Filing Date",
            "Business Mailing Address", "Company Officer", "Business Telephone")
 NOTICE = "Application notice; current operating authority not verified"
+FOOTER = re.compile(r"(?:Run Date\s*=\s*\d{2}/\d{2}/\d{4}|Run Time\s*=\s*\d{2}:\d{2}|Page \d+ of \d+)", re.IGNORECASE)
 
 
 class RegisterError(ValueError):
@@ -56,6 +59,7 @@ def extract_pdf(data: bytes, filename: str, progress: Callable | None = None,
     records, warnings = [], []
     category, section, register_date = "", "", ""
     pending = None
+    heading_prefix, heading_page = "", 0
 
     def finish():
         nonlocal pending
@@ -98,39 +102,62 @@ def extract_pdf(data: bytes, filename: str, progress: Callable | None = None,
             if not page.chars:
                 raise RegisterError(f"Page {page_number} has no text layer. OCR is required; scanned PDFs are not supported.")
             tables = sorted(page.find_tables(), key=lambda table: table.bbox[1])
+            lines = page.extract_text_lines()
+            if not tables:
+                # Some registers end with a page containing only the standard footer.
+                # Require its page marker and no images; never skip unexplained body text
+                # or a scan that happens to include a machine-readable footer.
+                texts = [clean(line["text"]) for line in lines if clean(line["text"])]
+                if (texts and not page.images and all(FOOTER.fullmatch(t) for t in texts)
+                        and f"Page {page_number} of {len(pdf.pages)}" in texts):
+                    warnings.append(f"Page {page_number} contains only the register footer; no company rows to extract.")
+                    page.close()
+                    continue
+                raise RegisterError(f"No supported table on page {page_number}; extraction stopped to avoid an incomplete list.")
             events = []
-            for line in page.extract_text_lines():
+            for line in lines:
                 # Only headings outside table cells may change context.
                 y = line["top"]
                 if any(t.bbox[1] <= y <= t.bbox[3] for t in tables):
                     continue
-                text = clean(line["text"])
-                if text in CATEGORIES:
-                    events.append((y, "category", text))
-                elif text == "OPERATING AUTHORITY APPLICATIONS":
-                    events.append((y, "section", text))
-                elif text.isupper() and max((c.get("size", 0) for c in line["chars"]), default=0) >= 10:
-                    if text not in ("REGISTER",) and not text.startswith("NOTICES RELEASED"):
-                        events.append((y, "unknown", text))
+                events.append((y, "line", line))
             events.extend((t.bbox[1], "table", t) for t in tables)
-            if not tables:
-                raise RegisterError(f"No supported table on page {page_number}; extraction stopped to avoid an incomplete list.")
             for _, kind, item in sorted(events, key=lambda event: event[0]):
-                if kind in ("category", "section", "unknown"):
-                    finish()
-                    if kind == "category":
-                        category = item
-                    elif kind == "section":
-                        section, category = item, ""
-                    else:
+                if kind == "line":
+                    text = clean(item["text"])
+                    if not text or FOOTER.fullmatch(text) or text == "REGISTER" or text.startswith("NOTICES RELEASED"):
+                        continue
+                    is_heading = text.isupper() and max((c.get("size", 0) for c in item["chars"]), default=0) >= 10
+                    # Join only prefixes of explicitly supported categories. The prefix
+                    # may continue on the next page, after the previous page's footer.
+                    candidate = clean(heading_prefix + " " + text) if heading_prefix else text
+                    if candidate in CATEGORIES:
+                        finish()
+                        category, heading_prefix = candidate, ""
+                    elif is_heading and any(c.startswith(candidate + " ") for c in CATEGORIES):
+                        finish()
+                        if not heading_prefix:
+                            heading_page = page_number
+                        category, heading_prefix = "", candidate
+                    elif heading_prefix:
+                        raise RegisterError(f"Incomplete category heading starting on page {heading_page}: {heading_prefix}.")
+                    elif text == "OPERATING AUTHORITY APPLICATIONS":
+                        finish()
+                        section, category = text, ""
+                    elif is_heading:
+                        finish()
                         section, category = "", ""
                     continue
+                if heading_prefix:
+                    raise RegisterError(f"Incomplete category heading starting on page {heading_page}: {heading_prefix}.")
                 rows = item.extract(x_tolerance=2, y_tolerance=3)
                 if not rows or tuple(clean(c) for c in rows[0]) != HEADERS:
                     raise RegisterError(f"Unsupported table layout on page {page_number}. Expected six USDOT application columns.")
                 if not category or section != "OPERATING AUTHORITY APPLICATIONS":
                     raise RegisterError(f"Unrecognized category or notice section on page {page_number}.")
                 for row in rows[1:]:
+                    if len(row) != len(HEADERS):
+                        raise RegisterError(f"Unsupported company row layout on page {page_number}. Expected six columns.")
                     cells = [clean(c) for c in row]
                     if not any(cells):
                         continue
@@ -148,6 +175,8 @@ def extract_pdf(data: bytes, filename: str, progress: Callable | None = None,
                         if page_number not in pending["pages"]:
                             pending["pages"].append(page_number)
             page.close()
+        if heading_prefix:
+            raise RegisterError(f"Incomplete category heading starting on page {heading_page}: {heading_prefix}.")
         finish()
         pages = len(pdf.pages)
     if not records:
@@ -163,6 +192,8 @@ def classify(categories: list[str], include_movers: bool = True) -> tuple[str, s
     if ENTERPRISE_PROPERTY in categories:
         extra = " Also has other category listings; review those before outreach." if len(categories) > 1 else ""
         return "relevant", "Enterprise property carrier; potential dispatch fit. Confirm international-cargo operating scope and service fit." + extra
+    if MEXICO_PROPERTY in categories:
+        return "relevant", "Mexico-domiciled property motor carrier; potential cross-border dispatch fit. Verify authorized operating scope and service fit."
     if include_movers and (HHG in categories or ENTERPRISE_HHG in categories):
         if ENTERPRISE_HHG in categories and HHG not in categories:
             return "relevant", "Enterprise household-goods motor carrier; included because movers were enabled. Confirm international operating scope and service fit."
@@ -171,6 +202,8 @@ def classify(categories: list[str], include_movers: bool = True) -> tuple[str, s
         return "excluded", "Household-goods mover; excluded because the movers option is off."
     if PASSENGERS in categories or ENTERPRISE_PASSENGERS in categories:
         return "excluded", "Passenger operator; outside freight dispatch."
+    if MEXICO_PRIVATE_PROPERTY in categories:
+        return "excluded", "Private property carrier transporting its own cargo; no for-hire carrier listing in these uploads."
     if any(c.startswith("BROKER") for c in categories):
         return "excluded", "Broker listing with no property motor-carrier listing in these uploads."
     if any(c.startswith("FREIGHT FORWARDER") for c in categories):
@@ -187,7 +220,7 @@ def combine(documents: list[dict], include_movers: bool = True) -> dict:
     for dot, evidence in grouped.items():
         # Prefer the newest property-carrier record for contact details; preserve all variants below.
         ordered = sorted(evidence, key=lambda r: (
-            r["category"] in (PROPERTY, ENTERPRISE_PROPERTY),
+            r["category"] in (PROPERTY, ENTERPRISE_PROPERTY, MEXICO_PROPERTY),
             r["category"] in (HHG, ENTERPRISE_HHG),
             r["register_date"],
             datetime.strptime(r["filing_date"], "%m/%d/%Y")), reverse=True)
@@ -197,6 +230,8 @@ def combine(documents: list[dict], include_movers: bool = True) -> dict:
         flags = []
         if any(c.startswith("ENTERPRISE") for c in categories):
             flags.append("Enterprise carrier: verify authorized international-cargo scope before offering loads.")
+        if MEXICO_PROPERTY in categories or MEXICO_PRIVATE_PROPERTY in categories:
+            flags.append("Mexico-domiciled carrier: verify cross-border operating scope and private/for-hire status before offering loads.")
         for field, label in (("name", "business names"), ("address", "addresses"), ("phone", "phone numbers")):
             if len({r[field].casefold() for r in evidence if r[field]}) > 1:
                 flags.append(f"Multiple {label} in source records; review evidence.")

@@ -51,7 +51,12 @@ class RulesTests(unittest.TestCase):
         self.assertEqual(row["phone"], "'+1 5553334444")
 
 
-FILES = [Path.home() / "Downloads" / name for name in ("REGISTER20260807.pdf", "REGISTER20260806.pdf")]
+def source_file(name, subfolder):
+    direct = Path.home() / "Downloads" / name
+    return direct if direct.exists() else Path.home() / "Downloads" / subfolder / name
+
+
+FILES = [source_file(name, "August") for name in ("REGISTER20260807.pdf", "REGISTER20260806.pdf")]
 
 
 @unittest.skipUnless(all(path.exists() for path in FILES), "Supplied register PDFs are not installed")

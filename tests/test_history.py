@@ -34,7 +34,8 @@ class HistoryTests(unittest.TestCase):
         self.history.add([old])
         new = document("new.pdf", date="2026-08-07", phone="+1 5553334444")
         result, imported = self.history.add([new, document("other.pdf", "7654321")])
-        self.assertEqual(imported, {"added": 2, "skipped": 0})
+        self.assertEqual((imported["added"], imported["skipped"]), (2, 0))
+        self.assertEqual(imported["details"]["new_dots"], 1)
         restored = History(self.path).load()
         self.assertEqual(result, restored)
         self.assertEqual(restored["summary"]["unique"], 2)
@@ -47,7 +48,8 @@ class HistoryTests(unittest.TestCase):
     def test_reupload_and_renamed_register_do_not_inflate_history(self):
         original, _ = self.history.add([document()])
         result, imported = self.history.add([document(), document("renamed.pdf")])
-        self.assertEqual(imported, {"added": 0, "skipped": 2})
+        self.assertEqual((imported["added"], imported["skipped"]), (0, 2))
+        self.assertEqual(imported["details"]["already_saved"], 2)
         self.assertEqual(original, result)
         # A changed register with the same filename still preserves both versions.
         changed, imported = self.history.add([document(phone="+1 5553334444")])
@@ -210,6 +212,43 @@ class HistoryTests(unittest.TestCase):
         self.assertEqual(restored_doc["summary"]["unique"], 0)
         restored_all = self.history.restore(dot_deleted["trash"][0]["id"])
         self.assertEqual(restored_all, original)
+
+    def test_import_receipt_distinguishes_trashed_pdfs_and_deleted_dots(self):
+        original, _ = self.history.add([document()])
+        self.history.delete("dots", ["1234567"])
+        hidden, imported = self.history.add([document("another.pdf", date="2026-08-07")])
+        self.assertEqual(imported["added"], 1)
+        self.assertEqual(imported["details"]["new_dots"], 0)
+        self.assertEqual(imported["details"]["hidden_occurrences"], 1)
+        self.history.delete("documents", [original["documents"][0]["id"]])
+        result, imported = self.history.add([document()])
+        self.assertEqual(imported["details"]["in_trash"], 1)
+        self.assertEqual(imported["details"]["already_saved"], 0)
+        self.assertEqual(result["library"], {"saved_registers":2, "active_registers":1,
+                                            "trashed_registers":1, "deleted_dots":1})
+        self.assertEqual(result["summary"]["unique"], 0)
+
+    def test_history_can_grow_beyond_reported_stalled_total(self):
+        source = document()
+        base = source["records"][0]
+        source["records"] = [dict(base, dot=str(1000000+i), name=f"Carrier {i}") for i in range(9000)]
+        result, imported = self.history.add([source])
+        self.assertEqual(result["summary"]["unique"], 9000)
+        self.assertEqual(imported["details"]["new_dots"], 9000)
+        result, imported = self.history.add([document("new.pdf", "7654321")])
+        self.assertEqual(result["summary"]["unique"], 9001)
+        self.assertEqual(imported["details"]["new_dots"], 1)
+
+    def test_revision_stays_stable_on_reads_and_changes_after_save(self):
+        self.history.load()
+        initial = self.history.revision()
+        self.history.load()
+        self.assertEqual(initial, self.history.revision())
+        self.history.add([document()])
+        updated = self.history.revision()
+        self.assertNotEqual(initial, updated)
+        self.history.add([document()])
+        self.assertEqual(updated, self.history.revision())
 
 
 if __name__ == "__main__":

@@ -52,6 +52,13 @@ class History:
         self.path = Path(path)
         self.legacy_audit = legacy_audit
 
+    def revision(self):
+        try:
+            stat = self.path.stat()
+            return f"{stat.st_mtime_ns}:{stat.st_size}"
+        except FileNotFoundError:
+            return "empty"
+
     @contextmanager
     def transaction(self):
         connection = None
@@ -108,6 +115,9 @@ class History:
             documents.append(document)
         result = combine(documents, include_movers)
         result["trash"] = trash
+        saved = connection.execute("SELECT COUNT(*) FROM documents").fetchone()[0]
+        result["library"] = {"saved_registers": saved, "active_registers": len(documents),
+                             "trashed_registers": saved - len(documents), "deleted_dots": len(hidden["dots"])}
         return result
 
     def load(self, include_movers=True):
@@ -116,9 +126,26 @@ class History:
 
     def add(self, documents, include_movers=True):
         with self.transaction() as connection:
-            added = sum(self.insert(connection, document) for document in documents)
-            result = self.result(connection, include_movers)
-        return result, {"added": added, "skipped": len(documents) - added}
+            before = self.result(connection, include_movers)
+            hidden = {"dots": set(), "documents": set()}
+            for kind, targets in connection.execute("SELECT kind, targets FROM trash"):
+                hidden[kind].update(json.loads(targets))
+            added, files, hidden_rows, seen = 0, [], 0, set()
+            for document in documents:
+                key = document_key(document)
+                inserted = self.insert(connection, document)
+                added += inserted
+                status = "added" if inserted else "in_trash" if key in hidden["documents"] else "already_saved"
+                files.append({"filename": document["filename"], "status": status})
+                if key not in hidden["documents"] and key not in seen:
+                    hidden_rows += sum(r["dot"] in hidden["dots"] for r in document["records"])
+                seen.add(key)
+            result = self.result(connection, include_movers) if added else before
+        return result, {"added": added, "skipped": len(documents) - added,
+                        "details": {"new_dots": result["summary"]["unique"] - before["summary"]["unique"],
+                                    "already_saved": sum(f["status"] == "already_saved" for f in files),
+                                    "in_trash": sum(f["status"] == "in_trash" for f in files),
+                                    "hidden_occurrences": hidden_rows, "files": files}}
 
     def delete(self, kind, targets):
         if kind not in ("dots", "documents") or not targets:
