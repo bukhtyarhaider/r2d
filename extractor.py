@@ -251,7 +251,13 @@ def main():
             documents.append(extract_pdf(path.read_bytes(), path.name))
         except Exception as error:
             parser.exit(1, f"{path.name}: {error}\nNo exports written.\n")
-    result = combine(documents, not args.freight_only)
+    # Import here to keep the parser usable independently of the persistence layer.
+    from history import History, HistoryError
+    try:
+        result, imported = History(args.out / "history.sqlite3", args.out / "extraction-audit.json").add(
+            documents, include_movers=not args.freight_only)
+    except HistoryError as error:
+        parser.exit(1, f"{error}\nNo exports written.\n")
     args.out.mkdir(parents=True, exist_ok=True)
     relevant = [r for r in result["leads"] if r["decision"] == "relevant"]
     (args.out / "dispatch-leads.csv").write_text(csv_text(relevant), encoding="utf-8-sig")
@@ -259,6 +265,7 @@ def main():
     (args.out / "all-records.csv").write_text(csv_text(result["leads"]), encoding="utf-8-sig")
     (args.out / "extraction-audit.json").write_text(json.dumps(result, indent=2), encoding="utf-8")
     print(json.dumps(result["summary"], indent=2))
+    print(f"Saved history: {imported['added']} new registers; {imported['skipped']} already saved.")
 
 
 if __name__ == "__main__":

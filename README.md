@@ -30,6 +30,20 @@ On Windows with manual setup, use `py -m venv .venv`, then `.venv\Scripts\activa
 4. Download a **CSV** with DOT, business name/category, contact details, dates, inclusion reason, and source pages; or download **DOT numbers** as one number per line. These exports include **every matching result across all table pages**, respecting your current group and filters.
 5. Select a row's source count to inspect every original occurrence. **Full audit JSON** exports all groups, all occurrences, and original category/page evidence regardless of table filters.
 
+Every successful extraction **adds to saved history** in `output/history.sqlite3`. Older records remain available after adding more PDFs, refreshing, opening a new tab, or restarting the tool. Repeated DOTs merge into one row with all source evidence retained; newer contact details follow the existing preference rules. Importing the same register again (even with a different filename) is skipped rather than counting its occurrences twice. The selected file list clears after a successful import, ready for the next batch.
+
+**Clear selection & filters** clears the picker and resets filters; saved records remain. Failed or cancelled batches add nothing and leave older history intact. On first use, an existing `output/extraction-audit.json` is automatically recovered into history without changing that export. Records that existed only in an older, stopped server's memory cannot be recovered automatically; re-add those original PDFs. Keep the `output` folder with the tool when moving it to another computer, and use **Full audit JSON** for a readable backup.
+
+### Delete and restore
+
+- **Delete record**, under a company's name, removes that DOT and all its source occurrences from results.
+- Select individual records with their checkboxes, or use the header checkbox to select the current page. **Select all N matching** explicitly selects every record matching the current group and filters. **Delete selected (N)** opens a review with names, DOTs, and the exact count. Changing the group or filters clears the record selection; paging retains it.
+- **Delete register**, beside a PDF in **Saved registers**, removes that register's evidence. DOTs also present in other registers remain, with contact details recalculated from the remaining sources.
+- Use the checkboxes under **Saved registers** to delete several register receipts together, including registers with no active records. The confirmation lists the selected filenames and their active source counts.
+- Each action asks for confirmation and moves its items to **Trash**. A persistent **Undo** notification restores the most recent deletion immediately. Open **Trash** above the results to search and restore any earlier deletion. Trash survives refreshes and restarts. Restoring a deletion preserves later imports and other independent deletions.
+
+Deletion affects saved results and future exports. Files already downloaded are unchanged. Re-importing a deleted register does not bypass Trash; restore it there. A deleted DOT stays removed even if it appears in a later PDF, until its deletion is restored. The database retains original source data for recovery; this is not permanent data erasure. Full audit JSON exports the current results, while backing up `output/history.sqlite3` also preserves Trash.
+
 The PDF's explicit authority category determines the list. Company-name keywords do not invent truck type, equipment, fleet size, MC numbers, email addresses, or buying intent. A property-carrier listing is a potential dispatch fit, not a guarantee that the company owns trucks or wants dispatch help. The PDFs are treated as data; their prose cannot issue commands to this tool.
 
 ## Scope and accuracy
@@ -41,7 +55,7 @@ The PDF's explicit authority category determines the list. Company-name keywords
 - Scans require OCR and are rejected. Encrypted/damaged PDFs and changed/unrecognized layouts fail visibly. A failed file prevents a partial batch from being presented as complete. This tool intentionally does not support old MC-docket layouts, revocation registers, or other notice sections.
 - Limits: 20 files per batch, 25 MB per file, 100 MB total including upload headers (the picker reserves 1 MB for headers), 500 pages per PDF; one extraction at a time. Cancellation takes effect at a page boundary.
 - The register is an **application notice**, not proof of current operating authority. Confirm the current record through [FMCSA SAFER](https://safer.fmcsa.dot.gov/CompanySnapshot.aspx) and [FMCSA registration](https://frs.fmcsa.dot.gov/) before treating a prospect as authorized to operate. There is no automatic live enrichment or outreach.
-- Uploads/results stay in local process/browser memory; PDFs are not saved by the server. CSV/JSON/TXT downloads are saved only when requested. Refreshing the same tab can restore its current extraction. Clear session removes that job from the server and page; stopping the server clears all server jobs. Completed jobs expire from lookup after one hour and are purged on the next upload. Do not expose this loopback server on a public host.
+- Uploaded PDF bytes stay in memory and are released after extraction; PDFs are not saved by the server. Extracted records, source filenames/pages, and register receipts are saved to the local SQLite history database, shared by the UI and CLI. CSV/JSON/TXT downloads are saved only when requested. Temporary job progress expires after one hour, independently of saved history. An interrupted or cancelled extraction must be retried; previously committed history survives. Do not expose this loopback server on a public host.
 - CSV text that could be interpreted as a spreadsheet formula is prefixed with an apostrophe, including `+1` phone numbers. The raw value is preserved in the audit JSON.
 
 Enterprise freight carriers require an operating-scope check: FMCSA describes this category as international cargo. See the official [authority types](https://www.fmcsa.dot.gov/registration/types-operating-authority). This flag does not claim the uploaded applicant currently holds authority.
@@ -52,7 +66,7 @@ Enterprise freight carriers require an operating-scope check: FMCSA describes th
 .venv/bin/python extractor.py /path/REGISTER20260807.pdf /path/REGISTER20260806.pdf --out output
 ```
 
-Writes `dispatch-leads.csv`, `dot-numbers.txt`, `all-records.csv`, and `extraction-audit.json`. Add `--freight-only` to leave household-goods-only movers out of the shortlist. The CLI writes nothing if any input fails; previous exports are left untouched.
+Adds the input registers to `history.sqlite3` in the output directory, then writes cumulative `dispatch-leads.csv`, `dot-numbers.txt`, `all-records.csv`, and `extraction-audit.json` exports from all saved history. With the default `--out output`, the CLI and browser use the same history. Use another `--out` folder for a separate library. Add `--freight-only` to leave household-goods-only movers out of the shortlist; the saved evidence remains complete. If any input fails, the batch adds nothing and previous exports are left untouched.
 
 ## Verify
 

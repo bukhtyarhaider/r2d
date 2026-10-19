@@ -13,7 +13,8 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlsplit
 
-from extractor import Cancelled, RegisterError, combine, extract_pdf
+from extractor import Cancelled, RegisterError, extract_pdf
+from history import History, HistoryError, HistorySelectionError
 
 ROOT = Path(__file__).resolve().parent
 TOKEN = secrets.token_urlsafe(32)
@@ -21,6 +22,7 @@ JOBS: dict = {}
 LOCK = threading.RLock()
 MAX_BODY = 100 * 1024 * 1024
 TTL = 3600
+HISTORY = History(ROOT / "output" / "history.sqlite3", ROOT / "output" / "extraction-audit.json")
 
 
 def work(job, files):
@@ -33,18 +35,25 @@ def work(job, files):
                                message=f"Reading {name} · page {page} of {pages}")
             document = extract_pdf(data, filename, progress, job["cancel"].is_set)
             documents.append(document)
-        if job["cancel"].is_set():
-            raise Cancelled()
-        result = combine(documents)
         with LOCK:
-            job.update(status="complete", result=result, message="Extraction complete")
+            if job["cancel"].is_set():
+                raise Cancelled()
+            job.update(message="Saving records to local history…")
+        # The database serializes competing writers and commits only a complete batch.
+        # Hold LOCK through commit so cancellation cannot acknowledge an unsaved batch.
+        with LOCK:
+            if job["cancel"].is_set():
+                raise Cancelled()
+            result, imported = HISTORY.add(documents)
+            job.update(status="complete", result=result, imported=imported,
+                       message="Extraction saved to local history")
     except Cancelled:
         with LOCK:
             job.update(status="cancelled", message="Extraction cancelled. Select Extract to try again.")
     except Exception as error:
         with LOCK:
             message = str(error) if isinstance(error, RegisterError) else "The PDF could not be read. It may be damaged or encrypted."
-            job.update(status="error", message=f"{filename}: {message} No partial results were exported.")
+            job.update(status="error", message=f"{filename}: {message} No records from this batch were added; earlier history is unchanged.")
     finally:
         files.clear()
 
@@ -78,6 +87,14 @@ class Handler(BaseHTTPRequestHandler):
         path = urlsplit(self.path).path
         if path == "/api/session":
             return self.send(200, {"token": TOKEN})
+        if path == "/api/history":
+            try:
+                with LOCK:
+                    result = HISTORY.load()
+                    active = next((key for key, job in JOBS.items() if job["status"] == "running"), None)
+                return self.send(200, {"result": result, "active_job": active})
+            except HistoryError as error:
+                return self.send(500, {"error": str(error)})
         if path.startswith("/api/jobs/"):
             key = path.rsplit("/", 1)[-1]
             with LOCK:
@@ -86,7 +103,7 @@ class Handler(BaseHTTPRequestHandler):
                     del JOBS[key]
                     job = None
                 if not job:
-                    return self.send(404, {"error": "This session expired. Extract the PDFs again."})
+                    return self.send(404, {"error": "This extraction session expired. Saved records are still in local history; refresh to reload them."})
                 return self.send(200, {k: v for k, v in job.items() if k not in ("cancel", "created")})
         asset = {"/": "index.html", "/styles.css": "styles.css", "/app.js": "app.js"}.get(path)
         if not asset:
@@ -102,6 +119,34 @@ class Handler(BaseHTTPRequestHandler):
         if origin and origin != "http://" + self.headers["Host"]:
             return self.send(403, {"error": "Local page access only."})
         path = urlsplit(self.path).path
+        if path in ("/api/history/delete", "/api/history/restore"):
+            try:
+                size = int(self.headers.get("Content-Length", "0"))
+                if not 0 < size <= 2 * 1024 * 1024:
+                    raise ValueError()
+                self.connection.settimeout(30)
+                data = json.loads(self.rfile.read(size))
+                if not isinstance(data, dict):
+                    raise ValueError()
+                if path.endswith("/delete"):
+                    kind, targets = data.get("kind"), data.get("targets")
+                    if kind not in ("dots", "documents") or not isinstance(targets, list) or not targets or not all(
+                            isinstance(target, str) and 0 < len(target) <= 64 for target in targets):
+                        raise ValueError()
+                elif not isinstance(data.get("id"), str) or len(data["id"]) != 32:
+                    raise ValueError()
+            except (ValueError, TypeError, OSError):
+                return self.send(400, {"error": "Choose valid saved records to delete or restore."})
+            try:
+                with LOCK:
+                    if any(job["status"] == "running" for job in JOBS.values()):
+                        return self.send(409, {"error": "Wait for the current extraction or cancel it before changing history."})
+                    result = HISTORY.delete(kind, targets) if path.endswith("/delete") else HISTORY.restore(data["id"])
+                return self.send(200, {"result": result})
+            except HistorySelectionError as error:
+                return self.send(409, {"error": str(error)})
+            except HistoryError as error:
+                return self.send(500, {"error": str(error)})
         if path.endswith("/cancel") or path.endswith("/forget"):
             key = path.split("/")[-2]
             with LOCK:
