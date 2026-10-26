@@ -1,41 +1,423 @@
 <!doctype html>
 <html lang="en">
-<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Dispatch Register · DOT prospect finder</title><link rel="stylesheet" href="/styles.css"><script src="/app.js" defer></script></head>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dispatch Register · FMCSA Prospect Intelligence</title>
+  <link rel="stylesheet" href="/styles.css">
+  <script src="/app.js" defer></script>
+</head>
 <body>
-<header class="topbar"><a class="brand" href="/" aria-label="Dispatch Register home"><span class="brand-icon">↗</span><span>Dispatch<span class="brand-light">Register</span></span></a><div class="topbar-meta"><span class="dev-badge">Developer: <strong>Bukhtyar Haider</strong></span><div class="local"><span></span> LOCAL WORKSPACE</div></div></header>
-<main>
-  <section class="intro"><div><p class="eyebrow">FROM REGISTER TO RELEVANT</p><h1>Your next carrier connection<br>starts with the right DOT.</h1><p class="lede">Turn FMCSA Register PDFs into a focused dispatch prospect list.<br class="desktop"> Freight carriers, movers, and every source accounted for.</p></div><div class="intro-note"><span class="note-number">01 /</span><p>Find the carriers.<br>Make the connection.</p><span class="small">Built for dispatch teams · Developer: Bukhtyar Haider</span></div></section>
-  <section class="workspace" aria-label="Extract register PDFs">
-    <div class="upload-panel">
-      <div class="section-label"><span class="step">1</span><h2>Add your registers</h2><span class="tag">PDF</span></div>
-      <label class="dropzone" id="dropzone" tabindex="0"><input id="files" type="file" accept=".pdf,application/pdf" multiple><span class="upload-icon" aria-hidden="true">↑</span><strong>Drop register PDFs here</strong><span>or <u>browse files</u> on your computer</span><small>Up to 40 files · 25 MB each · 200 MB total</small></label>
-      <ul id="file-list" class="file-list" aria-label="Selected files"></ul>
-      <div class="upload-actions"><button class="primary" id="extract" disabled>Extract prospects <span aria-hidden="true">↗</span></button><button id="cancel" class="quiet" hidden>Cancel</button></div>
-      <div id="progress-area" hidden><progress id="progress" max="100"></progress><p id="progress-text" class="small" role="status" aria-live="polite"></p><p id="progress-health" class="small"></p></div>
-      <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
-      <p class="privacy"><span aria-hidden="true">◉</span> Saved on your computer. New PDFs add to your history, including after a restart. Already imported registers are skipped.</p>
+  <!-- Topbar Header with Brand, Navigation Tabs, and Controls -->
+  <header class="topbar">
+    <a class="brand" href="/" aria-label="Dispatch Register home">
+      <span class="brand-icon" aria-hidden="true">↗</span>
+      <span>Dispatch<span class="brand-light">Register</span></span>
+    </a>
+
+    <!-- Main Concerns Navigation -->
+    <nav class="app-nav" aria-label="Main Navigation">
+      <button class="nav-tab active" data-tab="prospects" aria-selected="true" role="tab">
+        <span aria-hidden="true">🎯</span> Prospects
+        <span id="nav-count-prospects" class="nav-badge">0</span>
+      </button>
+      <button class="nav-tab" data-tab="upload" aria-selected="false" role="tab">
+        <span aria-hidden="true">📥</span> Upload & Extract
+        <span id="nav-count-upload" class="nav-badge" hidden>0</span>
+      </button>
+      <button class="nav-tab" data-tab="library" aria-selected="false" role="tab">
+        <span aria-hidden="true">📁</span> Saved Registers
+        <span id="nav-count-registers" class="nav-badge">0</span>
+      </button>
+      <button class="nav-tab" data-tab="trash" aria-selected="false" role="tab">
+        <span aria-hidden="true">🗑️</span> Trash
+        <span id="nav-count-trash" class="nav-badge">0</span>
+      </button>
+      <button class="nav-tab" data-tab="guide" aria-selected="false" role="tab">
+        <span aria-hidden="true">📘</span> Guide
+      </button>
+    </nav>
+
+    <!-- Topbar Meta & Utilities -->
+    <div class="topbar-meta">
+      <div class="local" title="Local loopback server running offline-ready">
+        <span></span> LOCAL WORKSPACE
+      </div>
+      <span class="dev-badge">Developer: <strong>Bukhtyar Haider</strong></span>
+      <button id="theme-toggle" class="theme-btn" type="button" aria-label="Toggle dark/light theme" title="Toggle theme">
+        <span id="theme-icon" aria-hidden="true">🌙</span>
+      </button>
     </div>
-    <aside class="rules-panel"><p class="eyebrow">A MORE USEFUL SHORTLIST</p><h2>Category first.<br>Less guesswork.</h2><div class="rule"><span class="rule-symbol yes">✓</span><div><strong>Freight carriers & movers</strong><p>Property, enterprise freight, and household-goods carriers. One row per DOT across your registers.</p></div></div><div class="rule"><span class="rule-symbol">−</span><div><strong>Other business types set aside</strong><p>Brokers, forwarders, and passenger operators stay visible in Excluded.</p></div></div><div class="rule"><span class="rule-symbol review">!</span><div><strong>Source facts, clear limits</strong><p>Application notices do not confirm active authority. Equipment, fleet size, and dispatch need require follow-up.</p></div></div><a class="source-link" href="https://safer.fmcsa.dot.gov/CompanySnapshot.aspx" target="_blank" rel="noreferrer">Open FMCSA carrier lookup <span aria-hidden="true">↗</span></a></aside>
-  </section>
-  <section id="results" class="results" hidden aria-label="Extraction results">
-    <div class="results-heading"><div><p class="eyebrow">YOUR SAVED CARRIER HISTORY</p><h2>Ready for a closer look.</h2></div><div class="result-actions"><button id="refresh-history" class="secondary">Refresh saved records</button><button id="open-trash" class="secondary">Trash (<span id="trash-count">0</span>)</button><button id="clear" class="quiet">Clear selection & filters</button></div></div>
-    <div class="stats" id="stats"></div>
-    <div class="library-status"><div><strong id="sync-status" role="status">Checking saved records…</strong><p id="library-summary"></p><p class="small">Totals count active records. PDFs and DOTs moved to Trash stay excluded until you restore them.</p></div><button id="library-open-trash" class="secondary" hidden>Review Trash</button></div>
-    <div id="import-receipt" class="import-receipt" hidden><strong id="import-summary"></strong><details><summary>View PDF results for this batch</summary><ul id="import-files"></ul></details></div>
-    <div class="source-notice"><strong>Prospects · authority unverified</strong><span>These are register applications. Verify current authority and service fit before treating a company as an operating carrier.</span></div>
-    <div class="toolbar"><div class="tabs" role="group" aria-label="Result groups"><button data-view="relevant" class="active" aria-pressed="true">Relevant <span id="count-relevant">0</span></button><button data-view="review" aria-pressed="false">Review <span id="count-review">0</span></button><button data-view="excluded" aria-pressed="false">Excluded <span id="count-excluded">0</span></button><button data-view="all" aria-pressed="false">All</button></div><label class="search"><span aria-hidden="true">⌕</span><input id="search" type="search" placeholder="Search DOT, name, category…" aria-label="Search results"></label></div>
-    <div class="filters"><label>Category <select id="category"><option value="">All categories</option></select></label><label>Country <select id="country"><option value="">All countries</option><option value="US">United States</option><option value="CA">Canada</option><option value="MX">Mexico</option></select></label><label class="checkbox"><input id="movers" type="checkbox" checked> Include movers in Relevant</label><span id="visible-count"></span></div>
-    <div class="selection-bar" aria-label="Manage selected records"><div><strong id="selection-count" role="status">No records selected</strong><span id="selection-hint">Select individual records or use the checkbox to select this page.</span></div><div class="selection-actions"><button id="select-matching" class="quiet" disabled>Select all matching</button><button id="clear-selected" class="quiet" hidden>Clear selection</button><button id="delete-selected" class="danger-button" disabled>Delete selected</button></div></div>
-    <div id="history-empty" class="history-empty" hidden><h3>No active DOT records</h3><p id="history-empty-description"></p><button id="empty-open-trash" class="secondary">Review Trash</button></div>
-    <div class="export-bar"><span id="export-scope">Exports use the current filters</span><div><button id="export-csv" class="secondary">Download CSV ↓</button><button id="export-dots" class="secondary">DOT numbers ↓</button><button id="export-audit" class="quiet">Full audit JSON</button></div></div>
-    <div class="table-scroll"><table><thead><tr><th scope="col" class="select-cell"><label class="row-select-control"><input id="select-page" type="checkbox" aria-label="Select records on this page"></label></th><th scope="col">USDOT / company</th><th scope="col">Business category</th><th scope="col">Contact</th><th scope="col">Why this result</th><th scope="col">Source</th></tr></thead><tbody id="rows"></tbody></table></div>
-    <div class="table-footer"><span id="page-info"></span><div><button id="prev" class="quiet">← Previous</button><button id="next" class="quiet">Next →</button></div></div>
-    <div class="document-summary"><div class="document-heading"><div><h3>Saved registers</h3><p class="small" id="register-summary"></p></div><button id="delete-documents" class="quiet danger" disabled>Delete selected registers</button></div><label class="select-registers"><input id="select-all-documents" type="checkbox"> Select all saved registers <span id="document-selection-count" class="small"></span></label><div id="documents"></div><p class="small">Deleting a register removes its source evidence; DOTs supported by another active register stay in your list. Empty registers are retained receipts and can be deleted together.</p></div>
-  </section>
-  <footer><span>DISPATCH REGISTER · Developed by Bukhtyar Haider</span><span>Local processing. Traceable results.</span></footer>
-</main>
-<dialog id="evidence"><div class="dialog-heading"><h2 id="evidence-title">Source records</h2><button id="close-evidence" class="quiet">Close ✕</button></div><div id="evidence-content"></div></dialog>
-<dialog id="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description"><p class="eyebrow">REVIEW YOUR SELECTION</p><div class="dialog-heading"><h2 id="delete-title">Move records to Trash?</h2></div><p id="delete-description"></p><div id="delete-preview" class="delete-preview"></div><div class="recovery-note"><strong>You can undo this.</strong><p>Restore anytime from Trash. Deleted items stay excluded when their PDFs are imported again. Existing downloads are unchanged.</p></div><p id="delete-error" class="feedback" role="status"></p><div class="dialog-actions"><button id="cancel-delete" class="secondary">Cancel</button><button id="confirm-delete" class="danger-button">Move to Trash</button></div></dialog>
-<dialog id="trash-dialog" aria-labelledby="trash-title"><div class="dialog-heading"><div><p class="eyebrow">RECOVER DELETED ITEMS</p><h2 id="trash-title">Trash</h2></div><button id="close-trash" class="quiet">Close</button></div><p class="small">Each entry is one deletion. Restore it to undo that action; other deletions remain in place.</p><label class="trash-search">Find a deletion<input id="trash-search" type="search" placeholder="Search company, DOT, or register…"></label><p id="trash-feedback" class="feedback" role="status"></p><div id="trash-list"></div></dialog>
-<div id="undo-notice" class="undo-notice" hidden><p id="undo-message" role="status" aria-live="polite"></p><button id="undo-delete" class="secondary">Undo</button><button id="dismiss-undo" class="quiet" aria-label="Dismiss deletion notification">Dismiss</button></div>
-</body></html>
+  </header>
+
+  <main>
+    <!-- TAB 1: PROSPECTS EXPLORER -->
+    <section id="tab-prospects" class="tab-panel active" role="tabpanel" aria-label="Prospects Explorer">
+      <!-- KPI Stats Grid -->
+      <div class="stats" id="stats"></div>
+
+      <!-- Live Sync Status Banner -->
+      <div class="library-status">
+        <div>
+          <strong id="sync-status" role="status">Checking saved records…</strong>
+          <p id="library-summary"></p>
+          <p class="small">Totals reflect deduplicated active records. Items in Trash remain excluded until restored.</p>
+        </div>
+        <div class="result-actions">
+          <button id="refresh-history" class="secondary" title="Check for database updates">
+            <span aria-hidden="true">↻</span> Refresh records
+          </button>
+          <button id="open-trash" class="secondary">
+            Trash (<span id="trash-count">0</span>)
+          </button>
+          <button id="clear" class="quiet">Clear filters</button>
+        </div>
+      </div>
+
+      <!-- Regulatory Notice -->
+      <div class="source-notice">
+        <strong>⚠️ Prospects · Authority Unverified</strong>
+        <span>These are FMCSA register applications. Verify current active operating authority and equipment fit on SAFER before dispatch outreach.</span>
+      </div>
+
+      <!-- Unified Filter Card -->
+      <div class="prospects-filter-card">
+        <div class="toolbar">
+          <div class="tabs" role="group" aria-label="Result groups">
+            <button data-view="relevant" class="active" aria-pressed="true">
+              Relevant <span id="count-relevant">0</span>
+            </button>
+            <button data-view="review" aria-pressed="false">
+              Review <span id="count-review">0</span>
+            </button>
+            <button data-view="excluded" aria-pressed="false">
+              Excluded <span id="count-excluded">0</span>
+            </button>
+            <button data-view="all" aria-pressed="false">All Records</button>
+          </div>
+          <label class="search">
+            <span aria-hidden="true">🔍</span>
+            <input id="search" type="search" placeholder="Search DOT, company name, phone, officer, city…" aria-label="Search results">
+          </label>
+        </div>
+
+        <div class="filters">
+          <label>Category <select id="category"><option value="">All categories</option></select></label>
+          <label>Country <select id="country"><option value="">All countries</option><option value="US">United States (US)</option><option value="CA">Canada (CA)</option><option value="MX">Mexico (MX)</option></select></label>
+          <label class="checkbox">
+            <input id="movers" type="checkbox" checked> Include household-goods movers in Relevant
+          </label>
+          <span id="visible-count"></span>
+        </div>
+      </div>
+
+      <!-- Batch Selection Bar -->
+      <div class="selection-bar" aria-label="Manage selected records">
+        <div>
+          <strong id="selection-count" role="status">No records selected</strong>
+          <span id="selection-hint">Select individual records or use the header checkbox to select this page.</span>
+        </div>
+        <div class="selection-actions">
+          <button id="select-matching" class="secondary" disabled>Select all matching</button>
+          <button id="clear-selected" class="quiet" hidden>Clear selection</button>
+          <button id="delete-selected" class="danger-button" disabled>Move to Trash</button>
+        </div>
+      </div>
+
+      <!-- Empty State -->
+      <div id="history-empty" class="history-empty" hidden>
+        <p class="eyebrow">NO ACTIVE RECORDS</p>
+        <h3 id="history-empty-title">Your prospect list is clear</h3>
+        <p id="history-empty-description"></p>
+        <div style="display:flex;gap:10px;">
+          <button id="empty-open-upload" class="primary" type="button">Upload Register PDFs ↗</button>
+          <button id="empty-open-trash" class="secondary" hidden>Review Trash</button>
+        </div>
+      </div>
+
+      <!-- Export Action Strip -->
+      <div class="export-bar">
+        <span id="export-scope">Exports use the current filters</span>
+        <div>
+          <button id="export-csv" class="secondary" title="Export matching records as CSV">
+            <span aria-hidden="true">📥</span> Download CSV
+          </button>
+          <button id="export-dots" class="secondary" title="Export plain list of USDOT numbers">
+            <span aria-hidden="true">📋</span> DOT numbers (.txt)
+          </button>
+          <button id="export-audit" class="quiet" title="Export complete audit JSON with all original evidence">
+            <span aria-hidden="true">📊</span> Full audit JSON
+          </button>
+        </div>
+      </div>
+
+      <!-- Carrier Data Table -->
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th scope="col" class="select-cell">
+                <label class="row-select-control">
+                  <input id="select-page" type="checkbox" aria-label="Select records on this page">
+                </label>
+              </th>
+              <th scope="col">USDOT / Company</th>
+              <th scope="col">Authority & Category</th>
+              <th scope="col">Contact & Filing</th>
+              <th scope="col">Decision Reason</th>
+              <th scope="col">Source Records</th>
+            </tr>
+          </thead>
+          <tbody id="rows"></tbody>
+        </table>
+      </div>
+
+      <!-- Pagination Footer -->
+      <div class="table-footer">
+        <span id="page-info"></span>
+        <div>
+          <button id="prev" class="secondary">← Previous</button>
+          <button id="next" class="secondary">Next →</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: UPLOAD & EXTRACT WORKSPACE -->
+    <section id="tab-upload" class="tab-panel" role="tabpanel" aria-label="Upload and Extract Registers">
+      <div class="upload-deck">
+        <!-- Upload Card -->
+        <div class="upload-card">
+          <div class="section-label">
+            <span class="step">1</span>
+            <h2>Add FMCSA Register PDFs</h2>
+            <span class="tag">PDF</span>
+          </div>
+
+          <label class="dropzone" id="dropzone" tabindex="0">
+            <input id="files" type="file" accept=".pdf,application/pdf" multiple>
+            <span class="upload-icon" aria-hidden="true">↑</span>
+            <strong>Drop register PDFs here</strong>
+            <span>or <u>browse files</u> on your computer</span>
+            <small>Up to 40 files · 25 MB each · 200 MB total</small>
+          </label>
+
+          <ul id="file-list" class="file-list" aria-label="Selected files"></ul>
+
+          <div class="upload-actions">
+            <button class="primary" id="extract" disabled>
+              Extract prospects <span aria-hidden="true">↗</span>
+            </button>
+            <button id="cancel" class="quiet danger" hidden>Cancel extraction</button>
+          </div>
+
+          <div id="progress-area" hidden>
+            <progress id="progress" max="100"></progress>
+            <p id="progress-text" class="small" role="status" aria-live="polite"></p>
+            <p id="progress-health" class="small"></p>
+          </div>
+
+          <p id="feedback" class="feedback" role="status" aria-live="polite"></p>
+
+          <p class="privacy">
+            <span aria-hidden="true">🔒</span>
+            100% Local processing. Uncompressed PDF bytes stay in memory. New PDFs add to your database atomically.
+          </p>
+        </div>
+
+        <!-- Right Side: Rules & Recent Batch Receipt -->
+        <div class="receipt-card">
+          <div id="import-receipt" class="import-receipt" hidden>
+            <p class="eyebrow">LATEST BATCH SUMMARY</p>
+            <strong id="import-summary"></strong>
+            <details>
+              <summary>View file-by-file breakdown</summary>
+              <ul id="import-files"></ul>
+            </details>
+          </div>
+
+          <div class="rules-panel">
+            <p class="eyebrow">AUTOMATED DEDUPLICATION & RULES</p>
+            <h2>Clean prospect data.<br>Zero duplicate calls.</h2>
+
+            <div class="rule">
+              <span class="rule-symbol yes" aria-hidden="true">✓</span>
+              <div>
+                <strong>Property Freight & Movers</strong>
+                <p>Property, enterprise freight, and household-goods carriers are classified as prospects. Exactly one row per USDOT across all uploaded registers.</p>
+              </div>
+            </div>
+
+            <div class="rule">
+              <span class="rule-symbol" aria-hidden="true">−</span>
+              <div>
+                <strong>Brokers & Forwarders Excluded</strong>
+                <p>Brokers, freight forwarders, and passenger operators are quarantined in Excluded, keeping your calling shortlist sharp.</p>
+              </div>
+            </div>
+
+            <div class="rule">
+              <span class="rule-symbol review" aria-hidden="true">!</span>
+              <div>
+                <strong>Newest Contact Precedence</strong>
+                <p>When a carrier files repeatedly across multiple dates, the latest filed contact details are preferred while all source history is preserved.</p>
+              </div>
+            </div>
+
+            <a class="source-link" href="https://safer.fmcsa.dot.gov/CompanySnapshot.aspx" target="_blank" rel="noreferrer">
+              Open FMCSA SAFER carrier lookup <span aria-hidden="true">↗</span>
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: SAVED REGISTERS ARCHIVE -->
+    <section id="tab-library" class="tab-panel" role="tabpanel" aria-label="Saved Registers Library">
+      <div class="library-deck">
+        <div class="document-heading">
+          <div>
+            <p class="eyebrow">REGISTER ARCHIVES</p>
+            <h3>Imported FMCSA Registers</h3>
+            <p class="small" id="register-summary"></p>
+          </div>
+          <button id="delete-documents" class="danger-button" disabled>
+            Delete selected registers
+          </button>
+        </div>
+
+        <label class="select-registers">
+          <input id="select-all-documents" type="checkbox"> Select all saved registers
+          <span id="document-selection-count" class="small"></span>
+        </label>
+
+        <div id="documents"></div>
+
+        <div class="recovery-note" style="margin-top:20px;">
+          <strong>Source preservation guarantee:</strong>
+          <p>Deleting a register removes its source evidence. Any USDOT supported by another active register remains in your prospect list, with its contact details dynamically recalculated from the remaining sources.</p>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 4: TRASH & RECOVERY ARCHIVE -->
+    <section id="tab-trash" class="tab-panel" role="tabpanel" aria-label="Trash and Recovery">
+      <div class="trash-deck">
+        <div class="dialog-heading">
+          <div>
+            <p class="eyebrow">RECOVER DELETED ITEMS</p>
+            <h2>Trash & Deletion Archive</h2>
+          </div>
+          <button id="library-open-trash" class="secondary" hidden>Refresh Trash</button>
+        </div>
+        <p class="small">Each entry represents a deletion action. Restore any entry to immediately reinstate its records or registers; other deletions remain in place.</p>
+
+        <label class="trash-search">
+          <span>Search deletions</span>
+          <input id="trash-search" type="search" placeholder="Search by company name, USDOT, or register filename…">
+        </label>
+
+        <p id="trash-feedback" class="feedback" role="status"></p>
+
+        <div id="trash-list"></div>
+      </div>
+    </section>
+
+    <!-- TAB 5: DISPATCH GUIDELINES & SPECIFICATIONS -->
+    <section id="tab-guide" class="tab-panel" role="tabpanel" aria-label="Dispatch Guidelines">
+      <div class="guide-deck">
+        <article class="guide-card">
+          <p class="eyebrow">CORE PROSPECTS</p>
+          <h3>🚛 Property / Freight Carriers</h3>
+          <p>Applicants for <strong>Motor Carrier of Property (Except Household Goods)</strong>. These are for-hire trucking carriers transporting general freight and represent the highest-intent targets for independent freight dispatchers.</p>
+        </article>
+
+        <article class="guide-card">
+          <p class="eyebrow">OPTIONAL SHORTLIST</p>
+          <h3>📦 Household Goods Movers</h3>
+          <p>Applicants for <strong>Motor Carrier of Household Goods</strong>. They transport personal belongings and furniture. You can include or exclude movers from the Relevant tab at any time using the filter toggle.</p>
+        </article>
+
+        <article class="guide-card">
+          <p class="eyebrow">SPECIALTY FREIGHT</p>
+          <h3>🌐 Enterprise Property Carriers</h3>
+          <p>FMCSA designates Enterprise carriers as international cargo operators. They receive an automated <em>Operating Scope Check</em> flag to remind dispatch teams to verify international or cross-border lanes.</p>
+        </article>
+
+        <article class="guide-card">
+          <p class="eyebrow">CROSS-BORDER</p>
+          <h3>🇲🇽 Mexico-Domiciled Carriers</h3>
+          <p>Carriers domiciled in Mexico operating in US commercial zones or beyond. They carry a <em>Cross-Border Scope Verification</em> flag. Mexico-domiciled private carriers are excluded unless holding a for-hire carrier authority.</p>
+        </article>
+
+        <article class="guide-card">
+          <p class="eyebrow">EXCLUDED ENTITIES</p>
+          <h3>🚫 Brokers & Forwarders</h3>
+          <p>Freight brokers and freight forwarders arrange transportation but do not operate trucks. Passenger operators transport people. These are strictly excluded to protect dispatchers from dialing intermediaries.</p>
+        </article>
+
+        <article class="guide-card">
+          <p class="eyebrow">VERIFICATION PROTOCOL</p>
+          <h3>🔍 SAFER Authority Check</h3>
+          <p>The FMCSA Register is an <strong>application notice</strong>, not granted operating authority. Before dispatching or booking freight, always verify the active certificate and insurance filings on SAFER.</p>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <!-- Modals & Overlays -->
+
+  <!-- Source Evidence Modal -->
+  <dialog id="evidence" aria-labelledby="evidence-title">
+    <div class="dialog-heading">
+      <h2 id="evidence-title">Source records</h2>
+      <button id="close-evidence" class="quiet" aria-label="Close dialog">✕</button>
+    </div>
+    <div id="evidence-content"></div>
+  </dialog>
+
+  <!-- Move to Trash Confirmation Dialog -->
+  <dialog id="delete-dialog" aria-labelledby="delete-title" aria-describedby="delete-description">
+    <p class="eyebrow">CONFIRM DELETION</p>
+    <div class="dialog-heading">
+      <h2 id="delete-title">Move records to Trash?</h2>
+    </div>
+    <p id="delete-description"></p>
+    <div id="delete-preview" class="delete-preview"></div>
+    <div class="recovery-note">
+      <strong>Restorable at any time</strong>
+      <p>Items in Trash can be restored immediately or anytime in the future. Deleted USDOTs stay excluded even if re-uploaded in future PDFs until restored.</p>
+    </div>
+    <p id="delete-error" class="feedback" role="status"></p>
+    <div class="dialog-actions">
+      <button id="cancel-delete" class="secondary" type="button">Cancel</button>
+      <button id="confirm-delete" class="danger-button" type="button">Move to Trash</button>
+    </div>
+  </dialog>
+
+  <!-- Trash Dialog (Modal Fallback) -->
+  <dialog id="trash-dialog" aria-labelledby="trash-title">
+    <div class="dialog-heading">
+      <div>
+        <p class="eyebrow">RECOVER DELETED ITEMS</p>
+        <h2 id="trash-title">Trash</h2>
+      </div>
+      <button id="close-trash" class="quiet" aria-label="Close dialog">Close</button>
+    </div>
+    <p class="small">Each entry is one deletion. Restore it to undo that action; other deletions remain in place.</p>
+    <div id="trash-dialog-content"></div>
+  </dialog>
+
+  <!-- Persistent Floating Undo Notification -->
+  <div id="undo-notice" class="undo-notice" hidden>
+    <p id="undo-message" role="status" aria-live="polite"></p>
+    <button id="undo-delete" class="secondary">Undo</button>
+    <button id="dismiss-undo" class="quiet" aria-label="Dismiss notification">✕</button>
+  </div>
+
+  <!-- Footer -->
+  <footer>
+    <span>DISPATCH REGISTER · Developed by Bukhtyar Haider</span>
+    <span>Local-first architecture · 100% offline-capable · FMCSA Register Parser</span>
+  </footer>
+</body>
+</html>
