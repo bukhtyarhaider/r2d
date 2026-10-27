@@ -3,18 +3,30 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Dispatch Register · FMCSA Prospect Intelligence</title>
-  <link rel="stylesheet" href="/styles.css?v=3">
-  <script src="/app.js?v=3" defer></script>
+  <meta name="description" content="R2D - Register to Dot · FMCSA Dispatch Register Prospect Intelligence">
+  <title>R2D · Register to Dot — FMCSA Dispatch Register Prospect Intelligence</title>
+  <link rel="stylesheet" href="/styles.css?v=4">
+  <script src="/app.js?v=4" defer></script>
 </head>
 <body>
   <!-- Topbar Header with Brand, Navigation Tabs, and Controls -->
   <header class="topbar">
     <div class="topbar-inner">
-      <a class="brand" href="/" aria-label="Dispatch Register home">
-        <span class="brand-icon" data-lucide="truck" data-size="18"></span>
-        <span class="brand-text">Dispatch<span class="brand-light">Register</span></span>
-        <span class="version-tag">LOCAL</span>
+      <a class="brand" href="/" aria-label="R2D - Register to Dot">
+        <div class="brand-badge">
+          <svg class="brand-svg" viewBox="0 0 36 36" width="34" height="34" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <rect width="36" height="36" rx="9" class="brand-rect-bg"/>
+            <rect x="0.75" y="0.75" width="34.5" height="34.5" rx="8.25" class="brand-rect-border"/>
+            <path d="M7 10h5.4c2 0 3.3 1.1 3.3 2.7 0 1.4-.9 2.3-2.1 2.6l2.8 5.7h-2.9l-2.4-5H9.6v5H7V10zm2.6 4.3h2.6c.7 0 1.2-.4 1.2-1 0-.6-.5-1-1.2-1H9.6v2z" class="brand-path-r"/>
+            <path d="M17.5 12.2c.4-1.5 1.7-2.3 3.3-2.3 1.9 0 3.3 1.2 3.3 2.8 0 1.5-.9 2.6-2.2 3.5l-1.8 1.3h4.3V19h-7.6v-1.6l3.2-2.3c1.2-.9 1.8-1.6 1.8-2.5 0-.8-.6-1.3-1.4-1.3-.8 0-1.3.4-1.5 1.1l-1.9-.4z" class="brand-path-2"/>
+            <path d="M25 10h4.5c3.2 0 5 2.1 5 5.5s-1.8 5.5-5 5.5H25V10zm2.5 8.9h1.9c1.6 0 2.6-1.2 2.6-3.4s-1-3.4-2.6-3.4h-1.9v6.8z" class="brand-path-d"/>
+            <circle cx="29.5" cy="15.5" r="1.6" class="brand-radar-dot"/>
+          </svg>
+        </div>
+        <div class="brand-text-wrap">
+          <div class="brand-title">R2D<span class="brand-dot-beacon"></span></div>
+          <div class="brand-sub">REGISTER TO DOT</div>
+        </div>
       </a>
 
       <!-- Main Concerns Navigation Tabs -->
@@ -47,11 +59,16 @@
 
       <!-- Topbar Meta & Utilities -->
       <div class="topbar-meta">
+        <button id="open-shortcuts" class="btn btn-ghost btn-sm shortcuts-btn" type="button" aria-label="Open keyboard shortcuts" title="Keyboard Shortcuts (Press ?)">
+          <span data-lucide="keyboard" data-size="14"></span>
+          <span class="shortcuts-btn-text">Shortcuts</span>
+          <kbd class="kbd-pill">?</kbd>
+        </button>
         <div class="local-status-pill" title="Local loopback server running offline-ready">
           <span class="pulse-indicator"></span>
-          <span class="pulse-text">OFFLINE READY</span>
+          <span class="pulse-text">SQLITE · OFFLINE READY</span>
         </div>
-        <span class="dev-badge">Developer: <strong>Bukhtyar Haider</strong></span>
+        <span class="dev-badge">Dev: <strong>Bukhtyar Haider</strong></span>
         <button id="theme-toggle" class="theme-btn" type="button" aria-label="Toggle dark/light theme" title="Toggle theme">
           <span id="theme-icon"></span>
         </button>
@@ -128,7 +145,8 @@
           <!-- Quick Search Field -->
           <div class="search-box">
             <span class="search-icon" data-lucide="search" data-size="15"></span>
-            <input id="search" type="search" placeholder="Search USDOT, company, phone, officer, city…" aria-label="Search results">
+            <input id="search" type="search" placeholder="Search USDOT, company, phone, officer, city, state…" aria-label="Search results">
+            <kbd class="search-kbd" title="Press / to search">/</kbd>
           </div>
         </div>
 
@@ -577,11 +595,68 @@
     </div>
   </div>
 
+  <!-- Tactical Keyboard Shortcuts Dialog -->
+  <dialog id="shortcuts-dialog" class="modal-dialog shortcuts-dialog" aria-labelledby="shortcuts-title">
+    <div class="dialog-heading">
+      <div class="dialog-title-group">
+        <span class="dialog-icon" data-lucide="keyboard" data-size="18"></span>
+        <h2 id="shortcuts-title">Tactical Keyboard Shortcuts</h2>
+      </div>
+      <button id="close-shortcuts" class="btn-icon-close" aria-label="Close dialog">
+        <span data-lucide="x" data-size="16"></span>
+      </button>
+    </div>
+    <div class="dialog-body">
+      <p class="subtitle" style="margin-bottom:14px;">Boost your dispatch cadence with built-in speed keys.</p>
+      <div class="shortcuts-grid">
+        <div class="shortcut-item">
+          <kbd class="kbd-key">/</kbd>
+          <span class="shortcut-desc">Focus & highlight search field</span>
+        </div>
+        <div class="shortcut-item">
+          <kbd class="kbd-key">Esc</kbd>
+          <span class="shortcut-desc">Close modals / Clear active search</span>
+        </div>
+        <div class="shortcut-item">
+          <kbd class="kbd-key">1</kbd>
+          <span class="shortcut-desc">Switch to Relevant Prospects</span>
+        </div>
+        <div class="shortcut-item">
+          <kbd class="kbd-key">2</kbd>
+          <span class="shortcut-desc">Switch to Manual Review</span>
+        </div>
+        <div class="shortcut-item">
+          <kbd class="kbd-key">3</kbd>
+          <span class="shortcut-desc">Switch to Excluded Group</span>
+        </div>
+        <div class="shortcut-item">
+          <kbd class="kbd-key">4</kbd>
+          <span class="shortcut-desc">View All Carrier Records</span>
+        </div>
+        <div class="shortcut-item">
+          <kbd class="kbd-key">J</kbd>
+          <span class="shortcut-desc">Next table page</span>
+        </div>
+        <div class="shortcut-item">
+          <kbd class="kbd-key">K</kbd>
+          <span class="shortcut-desc">Previous table page</span>
+        </div>
+        <div class="shortcut-item">
+          <kbd class="kbd-key">?</kbd>
+          <span class="shortcut-desc">Open shortcuts field manual</span>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Toast Notification Container -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
   <!-- Footer -->
   <footer class="app-footer">
     <div class="footer-inner">
-      <span>DISPATCH REGISTER · Developed by <strong>Bukhtyar Haider</strong></span>
-      <span>Local-first architecture · 100% offline-ready · FMCSA Register Parser</span>
+      <span><strong>R2D</strong> · REGISTER TO DOT · Developed by <strong>Bukhtyar Haider</strong></span>
+      <span>Tactical FMCSA Register Intelligence · 100% Local SQLite Architecture</span>
     </div>
   </footer>
 </body>

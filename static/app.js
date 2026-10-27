@@ -29,6 +29,51 @@ const HHG = "MOTOR CARRIER OF HOUSEHOLD GOODS";
 const ENTERPRISE_HHG = "ENTERPRISE " + HHG;
 const PAGE_SIZE = 25;
 
+// Tactical address parser: extracts state/province, city, and country
+const parseLocation = (address) => {
+  if (!address) return { state: "", city: "", full: "" };
+  const regex = /,\s*([^,]+),\s*([A-Za-z]{2})\s+([0-9A-Za-z\- ]+?)(?:\s+([A-Z]{2}))?$/i;
+  const m = address.match(regex);
+  if (m) {
+    return {
+      city: m[1].trim(),
+      state: m[2].toUpperCase(),
+      zip: m[3].trim(),
+      country: m[4] ? m[4].toUpperCase() : "US",
+    };
+  }
+  const fallback = address.match(/\b([A-Z]{2})\s+\d{5}(?:-\d{4})?\s*(?:US)?$/i);
+  if (fallback) {
+    return { state: fallback[1].toUpperCase(), city: "", country: "US" };
+  }
+  return { state: "", city: "", country: address.endsWith(" CA") ? "CA" : address.endsWith(" MX") ? "MX" : "US" };
+};
+
+// Tactical toast feedback notification
+const Toast = {
+  show(message, type = "info", duration = 2200) {
+    let container = $("#toast-container");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "toast-container";
+      container.className = "toast-container";
+      document.body.appendChild(container);
+    }
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `<span class="toast-icon">${Lucide.icon(
+      type === "success" ? "check-circle-2" : type === "warning" ? "alert-triangle" : "info",
+      14
+    )}</span><span class="toast-text">${esc(message)}</span>`;
+    container.appendChild(toast);
+    requestAnimationFrame(() => toast.classList.add("show"));
+    setTimeout(() => {
+      toast.classList.remove("show");
+      setTimeout(() => toast.remove(), 250);
+    }, duration);
+  },
+};
+
 // ============================================================================
 // Lucide SVG Icons System (100% Offline, Stroke-based SVG Icons)
 // ============================================================================
@@ -80,7 +125,9 @@ const Lucide = {
     "arrow-up-right": `<path d="M7 7h10v10"/><path d="M7 17 17 7"/>`,
     "database": `<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>`,
     "cpu": `<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>`,
-    "sparkles": `<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>`
+    "sparkles": `<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>`,
+    "keyboard": `<rect width="20" height="14" x="2" y="5" rx="2"/><path d="M6 10h.01"/><path d="M10 10h.01"/><path d="M14 10h.01"/><path d="M18 10h.01"/><path d="M6 14h.01"/><path d="M18 14h.01"/><path d="M10 14h4"/>`,
+    "phone-call": `<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/><path d="M14.05 2a9 9 0 0 1 8 7.94"/><path d="M14.05 6A5 5 0 0 1 18 10"/>`
   },
 
   icon(name, size = 16, className = "") {
@@ -431,22 +478,25 @@ const Prospects = {
 
     // 3. Stats Cards
     $("#stats").innerHTML = [
-      [counts.relevant, "Relevant prospects", "relevant", "target", "stat-emerald", "Motor carriers of property"],
-      [s.unique, "Unique USDOT numbers", "all", "layers", "stat-sky", "Deduplicated active entities"],
-      [s.duplicates, "Repeated occurrences merged", "", "copy-check", "stat-indigo", "Repeat filings consolidated"],
-      [s.pages, "Source pages processed", "", "file-text", "stat-slate", "Processed from register PDFs"],
+      [counts.relevant, "Relevant prospects", "relevant", "target", "stat-emerald", "TARGET SHORTLIST", "Motor carriers of property"],
+      [s.unique, "Unique USDOT numbers", "all", "layers", "stat-sky", "DEDUPLICATED POOL", "Active entities in database"],
+      [s.duplicates, "Repeated occurrences merged", "", "copy-check", "stat-indigo", "MULTI-ISSUE FILINGS", "Repeat filings consolidated"],
+      [s.pages, "Source pages processed", "", "file-text", "stat-slate", "REGISTER ARCHIVE", "Pages parsed across all PDFs"],
     ]
-      .map(([n, label, filterView, iconName, colorClass, desc]) => {
+      .map(([n, label, filterView, iconName, colorClass, tag, desc]) => {
         const clickable = filterView ? `style="cursor:pointer;" data-stat-view="${filterView}" title="Filter by ${label}"` : "";
         return `<div class="stat-card ${colorClass}" ${clickable}>
           <div class="stat-card-header">
             <span class="stat-card-label">${label}</span>
             <div class="stat-card-icon">
-              ${Lucide.icon(iconName, 18)}
+              ${Lucide.icon(iconName, 17)}
             </div>
           </div>
           <div class="stat-card-body">
-            <strong class="stat-card-value">${Number(n || 0).toLocaleString()}</strong>
+            <div class="stat-value-row">
+              <strong class="stat-card-value">${Number(n || 0).toLocaleString()}</strong>
+              <span class="stat-pill">${tag}</span>
+            </div>
             <span class="stat-card-desc">${desc}</span>
           </div>
         </div>`;
@@ -538,6 +588,9 @@ const Prospects = {
               ? "Manual review"
               : "Outside target";
 
+          const loc = parseLocation(lead.address);
+          const cleanPhone = (lead.phone || "").replace(/[^0-9+]/g, "");
+
           return `<tr class="${isSelected ? "selected-row" : ""}">
             <td class="select-cell">
               <label class="row-select-control">
@@ -550,22 +603,33 @@ const Prospects = {
             <td>
               <div class="company-cell">
                 <div class="dot-row">
-                  <a class="dot-badge-link" href="${saferUrl}" target="_blank" rel="noreferrer" title="Open FMCSA SAFER snapshot">
-                    USDOT ${esc(lead.dot)}
-                    ${Lucide.icon("external-link", 11)}
+                  <button type="button" class="dot-badge-btn" data-copy-dot="${esc(lead.dot)}" title="Click to copy USDOT ${esc(lead.dot)}">
+                    <span class="dot-prefix">USDOT</span>
+                    <strong class="dot-number">${esc(lead.dot)}</strong>
+                    ${Lucide.icon("copy", 11)}
+                  </button>
+                  <a class="safer-link-pill" href="${saferUrl}" target="_blank" rel="noreferrer" title="Open official FMCSA SAFER company snapshot">
+                    <span>SAFER</span>
+                    ${Lucide.icon("external-link", 10)}
                   </a>
                   <button type="button" class="row-delete danger" data-delete-dot="${esc(lead.dot)}" title="Delete record" ${
             state.busy || state.editing ? "disabled" : ""
           }>
-                    ${Lucide.icon("trash-2", 12)}
-                    <span>Delete</span>
+                    ${Lucide.icon("trash-2", 11)}
                   </button>
                 </div>
-                <span class="company">${esc(lead.name)}</span>
-                <span class="cell-note address-note">
-                  ${Lucide.icon("map-pin", 11, "inline-icon")}
-                  <span>${esc(lead.address)}</span>
-                </span>
+                <div class="company-name-wrap">
+                  <span class="company" title="${esc(lead.name)}">${esc(lead.name)}</span>
+                  <a class="company-search-link" href="https://www.google.com/search?q=${encodeURIComponent(lead.name + ' USDOT ' + lead.dot)}" target="_blank" rel="noreferrer" title="Search carrier on Google">
+                    ${Lucide.icon("search", 10)}
+                  </a>
+                </div>
+                <div class="cell-location">
+                  ${loc.state ? `<span class="state-pill state-${esc(loc.state)}">${esc(loc.state)}</span>` : ""}
+                  <span class="address-text" title="${esc(lead.address)}">
+                    ${esc(loc.city ? `${loc.city}, ${loc.state || loc.country}` : lead.address)}
+                  </span>
+                </div>
               </div>
             </td>
             <td>
@@ -577,9 +641,12 @@ const Prospects = {
                 ${
                   lead.phone
                     ? `<div class="phone-row">
-                        <strong class="phone-number">${esc(lead.phone)}</strong>
+                        <a href="tel:${esc(cleanPhone)}" class="phone-dial-link" title="Call ${esc(lead.phone)} directly">
+                          ${Lucide.icon("phone", 12)}
+                          <strong class="phone-number">${esc(lead.phone)}</strong>
+                        </a>
                         <button type="button" class="copy-btn" data-copy="${esc(lead.phone)}" title="Copy phone number">
-                          ${Lucide.icon("copy", 12)}
+                          ${Lucide.icon("copy", 11)}
                         </button>
                       </div>`
                     : '<span class="cell-note unavailable">Phone unavailable</span>'
@@ -600,7 +667,7 @@ const Prospects = {
                 ${lead.flags
                   .map(
                     (flag) =>
-                      `<div class="flag-chip">${Lucide.icon("alert-triangle", 12)} <span>${esc(flag)}</span></div>`
+                      `<div class="flag-chip">${Lucide.icon("alert-triangle", 11)} <span>${esc(flag)}</span></div>`
                   )
                   .join("")}
               </div>
@@ -1601,19 +1668,32 @@ const App = {
         Trash.askDelete("dots", [delBtn.dataset.deleteDot]);
         return;
       }
-      // Copy phone or USDOT
+      // Copy USDOT
+      const copyDotBtn = e.target.closest("[data-copy-dot]");
+      if (copyDotBtn) {
+        const text = copyDotBtn.dataset.copyDot;
+        navigator.clipboard.writeText(text).then(() => {
+          copyDotBtn.classList.add("copied");
+          Toast.show(`USDOT ${text} copied to clipboard`, "success");
+          setTimeout(() => copyDotBtn.classList.remove("copied"), 1500);
+        });
+        return;
+      }
+      // Copy phone
       const copyBtn = e.target.closest("[data-copy]");
       if (copyBtn) {
         const text = copyBtn.dataset.copy;
         navigator.clipboard.writeText(text).then(() => {
           const original = copyBtn.innerHTML;
-          copyBtn.innerHTML = Lucide.icon("check", 12, "text-success");
+          copyBtn.innerHTML = Lucide.icon("check", 11, "text-success");
           copyBtn.classList.add("copied");
+          Toast.show(`Phone ${text} copied to clipboard`, "success");
           setTimeout(() => {
             copyBtn.innerHTML = original;
             copyBtn.classList.remove("copied");
           }, 1500);
         });
+        return;
       }
     });
 
@@ -1690,6 +1770,69 @@ const App = {
     $("#cancel-delete").addEventListener("click", () => $("#delete-dialog").close());
     $("#close-evidence").addEventListener("click", () => $("#evidence").close());
     $("#close-trash").addEventListener("click", () => $("#trash-dialog").close());
+
+    const openShortcutsBtn = $("#open-shortcuts");
+    if (openShortcutsBtn) {
+      openShortcutsBtn.addEventListener("click", () => $("#shortcuts-dialog")?.showModal());
+    }
+    const closeShortcutsBtn = $("#close-shortcuts");
+    if (closeShortcutsBtn) {
+      closeShortcutsBtn.addEventListener("click", () => $("#shortcuts-dialog")?.close());
+    }
+
+    // Keyboard Shortcuts Speed Control
+    window.addEventListener("keydown", (e) => {
+      const isInput = ["INPUT", "SELECT", "TEXTAREA"].includes(document.activeElement?.tagName);
+      if (e.key === "Escape") {
+        if ($("#evidence")?.open) $("#evidence").close();
+        else if ($("#delete-dialog")?.open) $("#delete-dialog").close();
+        else if ($("#shortcuts-dialog")?.open) $("#shortcuts-dialog").close();
+        else if ($("#trash-dialog")?.open) $("#trash-dialog").close();
+        else if (isInput) document.activeElement.blur();
+        return;
+      }
+      if (isInput) return;
+
+      if (e.key === "/" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        $("#search")?.focus();
+        $("#search")?.select();
+      } else if (e.key === "?" && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        $("#shortcuts-dialog")?.showModal();
+      } else if (e.key === "1") {
+        state.view = "relevant";
+        state.selectedDots.clear();
+        state.page = 0;
+        Prospects.render();
+      } else if (e.key === "2") {
+        state.view = "review";
+        state.selectedDots.clear();
+        state.page = 0;
+        Prospects.render();
+      } else if (e.key === "3") {
+        state.view = "excluded";
+        state.selectedDots.clear();
+        state.page = 0;
+        Prospects.render();
+      } else if (e.key === "4") {
+        state.view = "all";
+        state.selectedDots.clear();
+        state.page = 0;
+        Prospects.render();
+      } else if (e.key.toLowerCase() === "j") {
+        const leads = Prospects.visibleRows();
+        if ((state.page + 1) * state.pageSize < leads.length) {
+          state.page++;
+          Prospects.render();
+        }
+      } else if (e.key.toLowerCase() === "k") {
+        if (state.page > 0) {
+          state.page--;
+          Prospects.render();
+        }
+      }
+    });
 
     $("#undo-delete").addEventListener("click", () => {
       if (state.undoId) Trash.restoreDeletion(state.undoId, "undo");
