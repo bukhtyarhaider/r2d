@@ -133,12 +133,25 @@ class Handler(BaseHTTPRequestHandler):
                 if not job:
                     return self.send(404, {"error": "This extraction session expired. Saved records are still in local history; refresh to reload them."})
                 return self.send(200, job_snapshot(job))
-        asset = {"/": "index.html", "/styles.css": "styles.css", "/app.js": "app.js"}.get(path)
-        if not asset:
+        if path == "/":
+            path = "/index.html"
+        safe_rel = Path(path.lstrip("/"))
+        target = (ROOT / "static" / safe_rel).resolve()
+        static_root = (ROOT / "static").resolve()
+        if not target.is_relative_to(static_root) or not target.is_file():
             return self.send(404, {"error": "Not found"})
-        mime = {"index.html": "text/html; charset=utf-8", "styles.css": "text/css; charset=utf-8",
-                "app.js": "text/javascript; charset=utf-8"}[asset]
-        self.send(200, (ROOT / "static" / asset).read_bytes(), mime)
+        ext_to_mime = {
+            ".html": "text/html; charset=utf-8",
+            ".css": "text/css; charset=utf-8",
+            ".js": "text/javascript; charset=utf-8",
+            ".svg": "image/svg+xml",
+            ".json": "application/json",
+            ".png": "image/png",
+            ".ico": "image/x-icon",
+            ".woff2": "font/woff2",
+        }
+        mime = ext_to_mime.get(target.suffix, "application/octet-stream")
+        self.send(200, target.read_bytes(), mime)
 
     def do_POST(self):
         if not self.valid_host() or self.headers.get("X-Session-Token") != TOKEN:
