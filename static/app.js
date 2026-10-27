@@ -30,6 +30,77 @@ const ENTERPRISE_HHG = "ENTERPRISE " + HHG;
 const PAGE_SIZE = 25;
 
 // ============================================================================
+// Lucide SVG Icons System (100% Offline, Stroke-based SVG Icons)
+// ============================================================================
+
+const Lucide = {
+  icons: {
+    "target": `<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>`,
+    "upload-cloud": `<path d="M4 14.899A7 7 0 1 1 15.71 8h1.79a4.5 4.5 0 0 1 2.5 8.242"/><path d="M12 12v9"/><path d="m16 16-4-4-4 4"/>`,
+    "folder-archive": `<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>`,
+    "trash-2": `<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>`,
+    "book-open": `<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`,
+    "sun": `<circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/>`,
+    "moon": `<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>`,
+    "refresh-cw": `<path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 0 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/><path d="M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16"/><path d="M8 16H3v5"/>`,
+    "search": `<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>`,
+    "filter": `<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>`,
+    "filter-x": `<path d="m13.013 3 3.987 5-3.987 5"/><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/><path d="m17 17 5 5"/><path d="m22 17-5 5"/>`,
+    "download": `<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>`,
+    "file-spreadsheet": `<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M8 13h2"/><path d="M14 13h2"/><path d="M8 17h2"/><path d="M14 17h2"/>`,
+    "file-text": `<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>`,
+    "file-code": `<path d="M10 12.5 8 15l2 2.5"/><path d="m14 12.5 2 2.5-2 2.5"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7z"/>`,
+    "copy": `<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>`,
+    "check": `<polyline points="20 6 9 17 4 12"/>`,
+    "check-circle-2": `<circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/>`,
+    "minus-circle": `<circle cx="12" cy="12" r="10"/><line x1="8" x2="16" y1="12" y2="12"/>`,
+    "alert-circle": `<circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/>`,
+    "alert-triangle": `<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" x2="12" y1="9" y2="13"/><line x1="12" x2="12.01" y1="17" y2="17"/>`,
+    "shield-check": `<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>`,
+    "lock": `<rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>`,
+    "external-link": `<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" x2="21" y1="14" y2="3"/>`,
+    "eye": `<path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/>`,
+    "chevron-left": `<path d="m15 18-6-6 6-6"/>`,
+    "chevron-right": `<path d="m9 18 6-6-6-6"/>`,
+    "rotate-ccw": `<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>`,
+    "x": `<path d="M18 6 6 18"/><path d="m6 6 12 12"/>`,
+    "user": `<path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>`,
+    "calendar": `<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>`,
+    "map-pin": `<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/>`,
+    "phone": `<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>`,
+    "users": `<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>`,
+    "layers": `<polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/>`,
+    "copy-check": `<path d="m12 15 2 2 4-4"/><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>`,
+    "package": `<path d="m16.5 9.4 4.5 2.8v5.6l-8 4.7-8-4.7v-5.6l4.5-2.8"/><path d="m3.3 7 8.7 5.2 8.7-5.2-8.7-5.2-8.7-5.2-8.7 5.2Z"/><path d="M12 12v9.5"/>`,
+    "globe": `<circle cx="12" cy="12" r="10"/><path d="M12 2a14.5 14.5 0 0 0 0 20 14.5 14.5 0 0 0 0-20"/><path d="M2 12h20"/>`,
+    "ban": `<circle cx="12" cy="12" r="10"/><path d="m4.9 4.9 14.2 14.2"/>`,
+    "sliders-horizontal": `<line x1="21" x2="14" y1="4" y2="4"/><line x1="10" x2="3" y1="4" y2="4"/><line x1="21" x2="12" y1="12" y2="12"/><line x1="8" x2="3" y1="12" y2="12"/><line x1="21" x2="16" y1="20" y2="20"/><line x1="12" x2="3" y1="20" y2="20"/><line x1="14" x2="14" y1="2" y2="6"/><line x1="8" x2="8" y1="10" y2="14"/><line x1="16" x2="16" y1="18" y2="22"/>`,
+    "info": `<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>`,
+    "truck": `<rect width="16" height="13" x="1" y="5" rx="2"/><polygon points="17 8 20 8 23 11 23 16 17 16 17 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/>`,
+    "arrow-up-right": `<path d="M7 7h10v10"/><path d="M7 17 17 7"/>`,
+    "database": `<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/>`,
+    "cpu": `<rect width="16" height="16" x="4" y="4" rx="2"/><rect width="6" height="6" x="9" y="9" rx="1"/><path d="M15 2v2"/><path d="M15 20v2"/><path d="M2 15h2"/><path d="M2 9h2"/><path d="M20 15h2"/><path d="M20 9h2"/><path d="M9 2v2"/><path d="M9 20v2"/>`,
+    "sparkles": `<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>`
+  },
+
+  icon(name, size = 16, className = "") {
+    const paths = this.icons[name] || this.icons["info"];
+    const cls = className ? `lucide lucide-${name} ${className}` : `lucide lucide-${name}`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="${cls}" aria-hidden="true">${paths}</svg>`;
+  },
+
+  createIcons(root = document) {
+    if (!root) return;
+    root.querySelectorAll("[data-lucide]").forEach((el) => {
+      const name = el.getAttribute("data-lucide");
+      const size = Number(el.getAttribute("data-size") || 16);
+      const cls = el.getAttribute("class") || "";
+      el.outerHTML = this.icon(name, size, cls);
+    });
+  }
+};
+
+// ============================================================================
 // 2. Application State Store
 // ============================================================================
 
@@ -84,7 +155,7 @@ const Theme = {
     localStorage.setItem("dispatch-theme", theme);
     const icon = $("#theme-icon");
     if (icon) {
-      icon.textContent = theme === "dark" ? "☀️" : "🌙";
+      icon.innerHTML = Lucide.icon(theme === "dark" ? "sun" : "moon", 16);
       icon.setAttribute("title", `Switch to ${theme === "dark" ? "light" : "dark"} mode`);
     }
   },
@@ -243,6 +314,7 @@ const Navigation = {
     if (tabId === "library") Library.render();
     if (tabId === "trash") Trash.render();
     if (tabId === "upload") Upload.renderFiles();
+    Lucide.createIcons();
   },
 
   updateBadges() {
@@ -359,16 +431,24 @@ const Prospects = {
 
     // 3. Stats Cards
     $("#stats").innerHTML = [
-      [counts.relevant, "Relevant prospects", "relevant"],
-      [s.unique, "Unique DOT numbers", "all"],
-      [s.duplicates, "Repeated occurrences merged", ""],
-      [s.pages, "Source pages processed", ""],
+      [counts.relevant, "Relevant prospects", "relevant", "target", "stat-emerald", "Motor carriers of property"],
+      [s.unique, "Unique USDOT numbers", "all", "layers", "stat-sky", "Deduplicated active entities"],
+      [s.duplicates, "Repeated occurrences merged", "", "copy-check", "stat-indigo", "Repeat filings consolidated"],
+      [s.pages, "Source pages processed", "", "file-text", "stat-slate", "Processed from register PDFs"],
     ]
-      .map(([n, label, filterView]) => {
+      .map(([n, label, filterView, iconName, colorClass, desc]) => {
         const clickable = filterView ? `style="cursor:pointer;" data-stat-view="${filterView}" title="Filter by ${label}"` : "";
-        return `<div class="stat" ${clickable}>
-          <strong>${Number(n || 0).toLocaleString()}</strong>
-          <span>${label}</span>
+        return `<div class="stat-card ${colorClass}" ${clickable}>
+          <div class="stat-card-header">
+            <span class="stat-card-label">${label}</span>
+            <div class="stat-card-icon">
+              ${Lucide.icon(iconName, 18)}
+            </div>
+          </div>
+          <div class="stat-card-body">
+            <strong class="stat-card-value">${Number(n || 0).toLocaleString()}</strong>
+            <span class="stat-card-desc">${desc}</span>
+          </div>
         </div>`;
       })
       .join("");
@@ -401,16 +481,23 @@ const Prospects = {
       : "No records selected";
     $("#selection-hint").textContent = state.selectedDots.size
       ? "Only selected DOTs will be moved to Trash."
-      : "Select individual records or use the header checkbox to select this page.";
+      : "Select individual records or check header box for this page.";
     $("#select-matching").textContent = `Select all ${leads.length.toLocaleString()} matching`;
     $("#select-matching").disabled =
       state.busy || state.editing || !leads.length || leads.every((lead) => state.selectedDots.has(lead.dot));
     $("#clear-selected").hidden = !state.selectedDots.size;
     $("#clear-selected").disabled = state.busy || state.editing;
     $("#delete-selected").disabled = state.busy || state.editing || !state.selectedDots.size;
-    $("#delete-selected").textContent = state.selectedDots.size
-      ? `Move ${state.selectedDots.size.toLocaleString()} to Trash`
-      : "Move to Trash";
+    $("#delete-selected").innerHTML = `${Lucide.icon("trash-2", 13)} <span>${
+      state.selectedDots.size
+        ? `Move ${state.selectedDots.size.toLocaleString()} to Trash`
+        : "Move to Trash"
+    }</span>`;
+
+    const selBar = $(".selection-bar");
+    if (selBar) {
+      selBar.classList.toggle("has-selection", state.selectedDots.size > 0);
+    }
 
     const selectPageCheckbox = $("#select-page");
     selectPageCheckbox.checked = !!pageRows.length && pageRows.every((lead) => state.selectedDots.has(lead.dot));
@@ -457,43 +544,74 @@ const Prospects = {
                 <input type="checkbox" data-select-dot="${esc(lead.dot)}" aria-label="Select USDOT ${esc(lead.dot)}" ${
             isSelected ? "checked" : ""
           } ${state.busy || state.editing ? "disabled" : ""}>
+                <span class="checkbox-mark"></span>
               </label>
             </td>
             <td>
-              <a class="dot-badge-link" href="${saferUrl}" target="_blank" rel="noreferrer" title="Open FMCSA SAFER snapshot">
-                USDOT ${esc(lead.dot)} ↗
-              </a>
-              <span class="company">${esc(lead.name)}</span>
-              <span class="cell-note">${esc(lead.address)}</span>
-              <button type="button" class="row-delete danger" data-delete-dot="${esc(lead.dot)}" ${
+              <div class="company-cell">
+                <div class="dot-row">
+                  <a class="dot-badge-link" href="${saferUrl}" target="_blank" rel="noreferrer" title="Open FMCSA SAFER snapshot">
+                    USDOT ${esc(lead.dot)}
+                    ${Lucide.icon("external-link", 11)}
+                  </a>
+                  <button type="button" class="row-delete danger" data-delete-dot="${esc(lead.dot)}" title="Delete record" ${
             state.busy || state.editing ? "disabled" : ""
-          }>Delete record</button>
+          }>
+                    ${Lucide.icon("trash-2", 12)}
+                    <span>Delete</span>
+                  </button>
+                </div>
+                <span class="company">${esc(lead.name)}</span>
+                <span class="cell-note address-note">
+                  ${Lucide.icon("map-pin", 11, "inline-icon")}
+                  <span>${esc(lead.address)}</span>
+                </span>
+              </div>
             </td>
             <td>
               <span class="badge ${badgeClass}">${esc(badgeLabel)}</span>
               <div class="category-name">${lead.categories.map(esc).join("<br>")}</div>
             </td>
             <td>
-              ${
-                lead.phone
-                  ? `<div style="display:flex;align-items:center;gap:6px;">
-                      <strong>${esc(lead.phone)}</strong>
-                      <button type="button" class="quiet" data-copy="${esc(lead.phone)}" style="padding:2px 6px;font-size:11px;" title="Copy phone">📋</button>
-                    </div>`
-                  : '<span class="cell-note">Phone unavailable</span>'
-              }
-              <span class="cell-note">Officer: ${esc(lead.officer || "Unavailable")}</span>
-              <span class="cell-note">Filing: ${esc(lead.filing_date)}</span>
+              <div class="contact-cell">
+                ${
+                  lead.phone
+                    ? `<div class="phone-row">
+                        <strong class="phone-number">${esc(lead.phone)}</strong>
+                        <button type="button" class="copy-btn" data-copy="${esc(lead.phone)}" title="Copy phone number">
+                          ${Lucide.icon("copy", 12)}
+                        </button>
+                      </div>`
+                    : '<span class="cell-note unavailable">Phone unavailable</span>'
+                }
+                <span class="cell-note">
+                  ${Lucide.icon("user", 11, "inline-icon")}
+                  <span>${esc(lead.officer || "Unavailable")}</span>
+                </span>
+                <span class="cell-note">
+                  ${Lucide.icon("calendar", 11, "inline-icon")}
+                  <span>Filing: ${esc(lead.filing_date)}</span>
+                </span>
+              </div>
             </td>
             <td>
-              <span>${esc(lead.reason)}</span>
-              ${lead.flags.map((flag) => `<p class="warning" style="margin:4px 0 0;font-weight:600;">⚠️ ${esc(flag)}</p>`).join("")}
+              <div class="reason-cell">
+                <span class="reason-text">${esc(lead.reason)}</span>
+                ${lead.flags
+                  .map(
+                    (flag) =>
+                      `<div class="flag-chip">${Lucide.icon("alert-triangle", 12)} <span>${esc(flag)}</span></div>`
+                  )
+                  .join("")}
+              </div>
             </td>
             <td>
-              <button type="button" class="evidence-button" data-dot="${esc(lead.dot)}">
-                ${lead.occurrences} ${lead.occurrences === 1 ? "source record" : "source records"}
-              </button>
-              <span class="cell-note">Click to inspect pages</span>
+              <div class="evidence-cell">
+                <button type="button" class="evidence-button" data-dot="${esc(lead.dot)}">
+                  ${Lucide.icon("eye", 13)}
+                  <span>${lead.occurrences} ${lead.occurrences === 1 ? "source record" : "sources"}</span>
+                </button>
+              </div>
             </td>
           </tr>`;
         })
@@ -516,6 +634,7 @@ const Prospects = {
     $("#undo-delete").disabled = state.busy || state.editing;
 
     Navigation.updateBadges();
+    Lucide.createIcons();
   },
 
   showEvidence(dot) {
@@ -523,12 +642,15 @@ const Prospects = {
     const lead = this.effective(state.result.leads.find((r) => r.dot === dot));
     if (!lead) return;
 
-    $("#evidence-title").textContent = `USDOT ${lead.dot} · Source Occurrences`;
+    $("#evidence-title").textContent = `USDOT ${lead.dot} · Source Records`;
     $("#evidence-content").innerHTML = lead.evidence
       .map(
         (rec) => `<article class="evidence-record">
-          <h3>${esc(rec.source)} · page ${rec.pages.join(", ")}</h3>
-          <dl>
+          <div class="evidence-header">
+            <span class="evidence-icon">${Lucide.icon("file-text", 16)}</span>
+            <h3>${esc(rec.source)} · page ${rec.pages.join(", ")}</h3>
+          </div>
+          <dl class="evidence-grid">
             ${[
               ["Legal Business", rec.name],
               ["Authority Category", rec.category],
@@ -538,15 +660,16 @@ const Prospects = {
               ["Company Officer", rec.officer || "Unavailable"],
               ["Mailing Address", rec.address],
             ]
-              .map(([label, value]) => `<dt>${label}</dt><dd>${esc(value)}</dd>`)
+              .map(([label, value]) => `<div class="evidence-field"><dt>${label}</dt><dd>${esc(value)}</dd></div>`)
               .join("")}
           </dl>
-          <p class="small" style="margin-top:10px;padding-top:8px;border-top:1px dashed var(--border-subtle);">${esc(rec.notice)}</p>
+          <div class="evidence-notice">${Lucide.icon("info", 13)} <span>${esc(rec.notice)}</span></div>
         </article>`
       )
       .join("");
 
     $("#evidence").showModal();
+    Lucide.createIcons();
   },
 };
 
@@ -624,13 +747,13 @@ const Upload = {
     list.innerHTML = state.files
       .map(
         (file, index) =>
-          `<li>
-            <span aria-hidden="true" style="font-size:16px;">📄</span>
+          `<li class="file-item">
+            <span class="file-icon">${Lucide.icon("file-text", 16)}</span>
             <span class="filename">${esc(file.name)}</span>
-            <small>${(file.size / 1024 / 1024).toFixed(1)} MB</small>
-            <button type="button" data-remove="${index}" aria-label="Remove ${esc(file.name)}" ${
+            <small class="file-size">${(file.size / 1024 / 1024).toFixed(1)} MB</small>
+            <button type="button" class="btn-remove-file" data-remove="${index}" aria-label="Remove ${esc(file.name)}" ${
             state.busy || state.editing ? "disabled" : ""
-          }>×</button>
+          }>${Lucide.icon("x", 14)}</button>
           </li>`
       )
       .join("");
@@ -900,27 +1023,39 @@ const Library = {
               <input type="checkbox" data-select-document="${esc(doc.id)}" aria-label="Select register ${esc(doc.filename)}" ${
             isSelected ? "checked" : ""
           } ${state.busy || state.editing ? "disabled" : ""}>
-              <span>
-                <strong>${esc(doc.filename)}</strong>
+              <span class="checkbox-mark"></span>
+              <div class="doc-icon-box">
+                ${Lucide.icon("file-text", 18)}
+              </div>
+              <div class="doc-info">
+                <strong class="doc-filename">${esc(doc.filename)}</strong>
                 <span class="document-meta">
-                  ${
-                    doc.record_count
-                      ? `${doc.record_count.toLocaleString()} active source ${doc.record_count === 1 ? "record" : "records"}`
-                      : "No active records"
-                  } · ${doc.pages} pages · ${esc(doc.register_date || "date unavailable")}
+                  <span class="doc-badge ${doc.record_count ? "has-records" : "empty-records"}">
+                    ${
+                      doc.record_count
+                        ? `${doc.record_count.toLocaleString()} active ${doc.record_count === 1 ? "record" : "records"}`
+                        : "0 active records"
+                    }
+                  </span>
+                  <span class="meta-sep">·</span>
+                  <span>${doc.pages} pages</span>
+                  <span class="meta-sep">·</span>
+                  <span class="meta-date">${Lucide.icon("calendar", 11, "inline-icon")} ${esc(doc.register_date || "date unavailable")}</span>
                 </span>
-              </span>
+              </div>
             </label>
-            <button type="button" class="quiet danger" data-delete-document="${esc(doc.id)}" aria-label="Delete register ${esc(
+            <button type="button" class="btn btn-ghost btn-danger btn-sm" data-delete-document="${esc(doc.id)}" aria-label="Delete register ${esc(
             doc.filename
           )}" ${state.busy || state.editing ? "disabled" : ""}>
-              Delete register
+              ${Lucide.icon("trash-2", 13)}
+              <span>Delete</span>
             </button>
           </div>
-          ${doc.warnings.map((w) => `<p class="warning" style="margin:4px 0 0;">⚠️ ${esc(w)}</p>`).join("")}`;
+          ${doc.warnings.map((w) => `<div class="doc-warning">${Lucide.icon("alert-triangle", 13)} <span>${esc(w)}</span></div>`).join("")}`;
         })
         .join("") ||
-      '<p class="small" style="padding:24px 0;text-align:center;">No saved registers. Restore deleted items from Trash or upload new PDFs.</p>';
+      '<div class="empty-library-state"><p class="small">No saved registers. Restore deleted items from Trash or upload new PDFs.</p></div>';
+    Lucide.createIcons();
   },
 };
 
@@ -948,20 +1083,24 @@ const Trash = {
           });
 
           return `<article class="trash-item">
-            <div>
-              <span class="trash-type">${esc(type)}</span>
-              <strong>${esc(item.label)}</strong>
-              <span class="small">Deleted ${esc(dateStr)}</span>
+            <div class="trash-info">
+              <div class="trash-badge-row">
+                <span class="trash-type">${esc(type)}</span>
+                <span class="trash-date">${Lucide.icon("calendar", 11, "inline-icon")} Deleted ${esc(dateStr)}</span>
+              </div>
+              <strong class="trash-label">${esc(item.label)}</strong>
             </div>
-            <button type="button" class="secondary" data-restore="${esc(item.id)}" aria-label="Restore ${esc(item.label)}" ${
+            <button type="button" class="btn btn-secondary btn-sm restore-btn" data-restore="${esc(item.id)}" aria-label="Restore ${esc(item.label)}" ${
             state.busy || state.editing ? "disabled" : ""
           }>
-              Restore
+              ${Lucide.icon("rotate-ccw", 13)}
+              <span>Restore</span>
             </button>
           </article>`;
         })
         .join("") ||
       `<div class="trash-empty">
+        <div class="empty-trash-icon">${Lucide.icon("trash-2", 36)}</div>
         <h3>${query ? "No matching deletions" : "Trash is empty"}</h3>
         <p class="small">${query ? "Try searching for a different company name, DOT, or filename." : "Deleted records and registers will appear here, ready to restore."}</p>
       </div>`;
@@ -969,6 +1108,7 @@ const Trash = {
     $("#trash-list").innerHTML = listHtml;
     const dialogContent = $("#trash-dialog-content");
     if (dialogContent) dialogContent.innerHTML = listHtml;
+    Lucide.createIcons();
   },
 
   askDelete(kind, targets) {
@@ -1303,6 +1443,7 @@ const App = {
     Theme.init();
     Navigation.init();
     Upload.init();
+    Lucide.createIcons();
 
     // Event Delegations
     this.bindEvents();
@@ -1358,7 +1499,7 @@ const App = {
       state.historyRefreshing = true;
       const btn = $("#refresh-history");
       btn.disabled = true;
-      btn.textContent = "↻ Refreshing…";
+      btn.innerHTML = `${Lucide.icon("refresh-cw", 14, "spin-icon")} <span>Refreshing…</span>`;
 
       try {
         await this.loadHistory(true);
@@ -1368,7 +1509,7 @@ const App = {
       } finally {
         state.historyRefreshing = false;
         btn.disabled = false;
-        btn.innerHTML = '<span aria-hidden="true">↻</span> Refresh records';
+        btn.innerHTML = `${Lucide.icon("refresh-cw", 14)} <span>Refresh records</span>`;
         this.checkActivity();
       }
     });
@@ -1465,9 +1606,13 @@ const App = {
       if (copyBtn) {
         const text = copyBtn.dataset.copy;
         navigator.clipboard.writeText(text).then(() => {
-          const original = copyBtn.textContent;
-          copyBtn.textContent = "✓";
-          setTimeout(() => (copyBtn.textContent = original), 1500);
+          const original = copyBtn.innerHTML;
+          copyBtn.innerHTML = Lucide.icon("check", 12, "text-success");
+          copyBtn.classList.add("copied");
+          setTimeout(() => {
+            copyBtn.innerHTML = original;
+            copyBtn.classList.remove("copied");
+          }, 1500);
         });
       }
     });
