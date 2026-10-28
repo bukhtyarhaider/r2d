@@ -1490,13 +1490,23 @@ class ProspectsTableComponent {
     this.store = store;
 
     this.tbody = document.getElementById('rows');
+    this.tableScroll = document.querySelector('.table-scroll');
+    this.tableFooter = document.querySelector('.table-footer');
     this.selectAllPageBox = document.getElementById('select-page');
     this.pageInfo = document.getElementById('page-info');
     this.prevBtn = document.getElementById('prev');
     this.nextBtn = document.getElementById('next');
+
+    // Empty state elements
     this.emptyState = document.getElementById('history-empty');
+    this.emptyIconBox = document.getElementById('empty-icon-box');
+    this.emptyEyebrow = document.getElementById('empty-eyebrow');
     this.emptyTitle = document.getElementById('history-empty-title');
     this.emptyDesc = document.getElementById('history-empty-description');
+    this.emptyFiltersContainer = document.getElementById('empty-filters-container');
+    this.emptyResetFiltersBtn = document.getElementById('empty-reset-filters');
+    this.emptyOpenUploadBtn = document.getElementById('empty-open-upload');
+    this.emptyOpenTrashBtn = document.getElementById('empty-open-trash');
 
     this.init();
   }
@@ -1520,6 +1530,32 @@ class ProspectsTableComponent {
       this.nextBtn.addEventListener('click', () => {
         const { page } = this.store.getState();
         this.store.setPage(page + 1);
+      });
+    }
+
+    if (this.emptyResetFiltersBtn) {
+      this.emptyResetFiltersBtn.addEventListener('click', () => {
+        // Clear filter inputs in DOM
+        const searchInput = document.getElementById('search');
+        if (searchInput) searchInput.value = '';
+        const countrySelect = document.getElementById('country');
+        if (countrySelect) countrySelect.value = '';
+        const moversCheckbox = document.getElementById('movers');
+        if (moversCheckbox) moversCheckbox.checked = true;
+        const authSearch = document.getElementById('authority-search-input');
+        if (authSearch) authSearch.value = '';
+
+        // Reset store filters
+        this.store.setFilters({
+          search: '',
+          selectedState: '',
+          category: '',
+          selectedCategories: [],
+          country: '',
+          movers: true,
+          view: 'relevant'
+        });
+        Toast.info('Active filters reset');
       });
     }
 
@@ -1596,16 +1632,76 @@ class ProspectsTableComponent {
     // Handle Empty State
     if (total === 0) {
       if (this.tbody) this.tbody.innerHTML = '';
+      if (this.tableScroll) this.tableScroll.hidden = true;
+      if (this.tableFooter) this.tableFooter.hidden = true;
+
       if (this.emptyState) {
         this.emptyState.hidden = false;
-        if (state.prospects.length === 0) {
-          if (this.emptyTitle) this.emptyTitle.textContent = 'No FMCSA Register records imported';
-          if (this.emptyDesc) this.emptyDesc.textContent = 'Upload FMCSA daily register PDFs in the Upload tab to generate your carrier prospect list.';
+        const totalProspects = (state.prospects || []).length;
+
+        if (totalProspects === 0) {
+          if (this.emptyIconBox) {
+            this.emptyIconBox.className = 'empty-icon-box emerald';
+            this.emptyIconBox.innerHTML = renderIcon('upload-cloud', 32);
+          }
+          if (this.emptyEyebrow) {
+            this.emptyEyebrow.className = 'empty-eyebrow emerald';
+            this.emptyEyebrow.textContent = 'DATABASE READY · NO REGISTERS LOADED';
+          }
+          if (this.emptyTitle) this.emptyTitle.textContent = 'No FMCSA Register records imported yet';
+          if (this.emptyDesc) this.emptyDesc.textContent = 'Upload FMCSA daily register PDFs in the Upload tab to parse applicants, deduplicate carriers by USDOT, and generate your live dispatch prospecting list.';
+          if (this.emptyFiltersContainer) this.emptyFiltersContainer.innerHTML = '';
+          if (this.emptyResetFiltersBtn) this.emptyResetFiltersBtn.hidden = true;
+          if (this.emptyOpenUploadBtn) this.emptyOpenUploadBtn.hidden = false;
+          if (this.emptyOpenTrashBtn) {
+            const trashCount = (state.trash || []).length;
+            this.emptyOpenTrashBtn.hidden = trashCount === 0;
+          }
         } else {
+          if (this.emptyIconBox) {
+            this.emptyIconBox.className = 'empty-icon-box amber';
+            this.emptyIconBox.innerHTML = renderIcon('filter-x', 32);
+          }
+          if (this.emptyEyebrow) {
+            this.emptyEyebrow.className = 'empty-eyebrow amber';
+            this.emptyEyebrow.textContent = 'FILTER CRITERIA UNMATCHED';
+          }
           if (this.emptyTitle) this.emptyTitle.textContent = 'No carriers match your active filters';
-          if (this.emptyDesc) this.emptyDesc.textContent = 'Try resetting your search query or state filter to view more prospects.';
+          if (this.emptyDesc) this.emptyDesc.textContent = `None of your ${totalProspects.toLocaleString()} active carrier prospects match the currently selected filter combination.`;
+          
+          // Render active filter chips so the user knows what is filtering
+          if (this.emptyFiltersContainer) {
+            const chips = [];
+            if (state.search) {
+              chips.push(`<span class="active-filter-chip"><span class="chip-label">Search:</span> "${this.escapeHtml(state.search)}"</span>`);
+            }
+            if (state.view && state.view !== 'relevant') {
+              chips.push(`<span class="active-filter-chip"><span class="chip-label">View:</span> ${this.escapeHtml(state.view.toUpperCase())}</span>`);
+            }
+            if (state.selectedState) {
+              chips.push(`<span class="active-filter-chip"><span class="chip-label">State:</span> ${this.escapeHtml(state.selectedState)}</span>`);
+            }
+            const selectedCats = Array.isArray(state.selectedCategories) && state.selectedCategories.length > 0
+              ? state.selectedCategories
+              : (state.category ? [state.category] : []);
+            if (selectedCats.length > 0) {
+              chips.push(`<span class="active-filter-chip"><span class="chip-label">Scope:</span> ${selectedCats.length === 1 ? this.escapeHtml(selectedCats[0]) : `${selectedCats.length} scopes`}</span>`);
+            }
+            if (state.country) {
+              chips.push(`<span class="active-filter-chip"><span class="chip-label">Country:</span> ${this.escapeHtml(state.country)}</span>`);
+            }
+            if (!state.movers) {
+              chips.push(`<span class="active-filter-chip"><span class="chip-label">HHG:</span> Excluded</span>`);
+            }
+            this.emptyFiltersContainer.innerHTML = chips.join('');
+          }
+
+          if (this.emptyResetFiltersBtn) this.emptyResetFiltersBtn.hidden = false;
+          if (this.emptyOpenUploadBtn) this.emptyOpenUploadBtn.hidden = true;
+          if (this.emptyOpenTrashBtn) this.emptyOpenTrashBtn.hidden = true;
         }
       }
+
       if (this.pageInfo) this.pageInfo.textContent = '0 - 0 of 0';
       if (this.prevBtn) this.prevBtn.disabled = true;
       if (this.nextBtn) this.nextBtn.disabled = true;
@@ -1613,6 +1709,8 @@ class ProspectsTableComponent {
       return;
     }
 
+    if (this.tableScroll) this.tableScroll.hidden = false;
+    if (this.tableFooter) this.tableFooter.hidden = false;
     if (this.emptyState) this.emptyState.hidden = true;
 
     // Pagination calculations
@@ -1751,6 +1849,15 @@ class ProspectsTableComponent {
     }).join('');
 
     if (this.tbody) this.tbody.innerHTML = rowsHtml;
+  }
+
+  escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 }
 

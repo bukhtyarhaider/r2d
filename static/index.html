@@ -246,19 +246,24 @@
 
       <!-- Empty State -->
       <div id="history-empty" class="history-empty" hidden>
-        <div class="empty-icon-box">
-          <span data-lucide="target" data-size="40"></span>
+        <div id="empty-icon-box" class="empty-icon-box amber">
+          <span data-lucide="filter-x" data-size="32"></span>
         </div>
-        <p class="eyebrow">NO ACTIVE RECORDS</p>
-        <h3 id="history-empty-title">Your prospect list is clear</h3>
-        <p id="history-empty-description"></p>
-        <div class="empty-actions">
-          <button id="empty-open-upload" class="btn btn-primary" type="button">
-            <span>Upload Register PDFs</span>
-            <span data-lucide="arrow-up-right" data-size="15"></span>
+        <p id="empty-eyebrow" class="empty-eyebrow amber">FILTER CRITERIA UNMATCHED</p>
+        <h3 id="history-empty-title">No carriers match your active filters</h3>
+        <p id="history-empty-description">Try resetting your search query, authority scopes, or state filter to view more prospects.</p>
+        <div id="empty-filters-container" class="active-filters-chips"></div>
+        <div class="empty-actions" id="empty-actions">
+          <button id="empty-reset-filters" class="btn btn-primary btn-sm" type="button">
+            <span data-lucide="rotate-ccw" data-size="13"></span>
+            <span>Reset Active Filters</span>
           </button>
-          <button id="empty-open-trash" class="btn btn-secondary" hidden>
-            <span data-lucide="trash-2" data-size="14"></span>
+          <button id="empty-open-upload" class="btn btn-primary btn-sm" type="button" hidden>
+            <span data-lucide="upload-cloud" data-size="14"></span>
+            <span>Upload Register PDFs</span>
+          </button>
+          <button id="empty-open-trash" class="btn btn-secondary btn-sm" type="button" hidden>
+            <span data-lucide="trash-2" data-size="13"></span>
             <span>Review Trash</span>
           </button>
         </div>
