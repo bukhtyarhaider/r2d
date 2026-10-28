@@ -168,6 +168,8 @@ export class ProspectsTableComponent {
 
       const st = lead._parsedState || '—';
       const city = lead._parsedCity || '';
+      const country = lead._parsedCountry;
+      const isCrossBorder = country && country !== 'US';
       const phone = lead.phone || '—';
       const cleanPhone = phone.replace(/[^0-9+]/g, '');
       const saferUrl = `https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=USDOT&query_string=${lead.dot}`;
@@ -195,12 +197,12 @@ export class ProspectsTableComponent {
           <!-- USDOT & SAFER Link -->
           <td class="col-dot">
             <div class="dot-cell-wrap">
-              <button type="button" class="dot-copy-btn" data-copy-dot="${lead.dot}" title="Click to copy USDOT">
+              <button type="button" class="dot-copy-btn" data-copy-dot="${lead.dot}" title="Click to copy USDOT ${lead.dot}">
                 <span class="dot-prefix">DOT</span>
                 <span class="dot-num">${lead.dot}</span>
                 <span class="copy-glyph">${renderIcon('copy', 11)}</span>
               </button>
-              <a href="${saferUrl}" target="_blank" rel="noreferrer" class="safer-link-pill" title="Open FMCSA SAFER Company Snapshot" onclick="event.stopPropagation()">
+              <a href="${saferUrl}" target="_blank" rel="noreferrer" class="safer-link-pill" title="Open FMCSA SAFER Snapshot for USDOT ${lead.dot}" onclick="event.stopPropagation()">
                 <span>SAFER</span>
                 ${renderIcon('external-link', 10)}
               </a>
@@ -211,6 +213,7 @@ export class ProspectsTableComponent {
           <td class="col-location">
             <div class="location-cell-wrap">
               ${st !== '—' ? `<span class="state-pill state-${st}">${st}</span>` : '<span class="state-pill state-NA">NA</span>'}
+              ${isCrossBorder ? `<span class="country-pill country-${country}">${country}</span>` : ''}
               <span class="city-name" title="${lead.address || ''}">${city || '—'}</span>
             </div>
           </td>
@@ -218,17 +221,17 @@ export class ProspectsTableComponent {
           <!-- Carrier Legal Name -->
           <td class="col-company">
             <div class="company-cell-wrap">
-              <button type="button" class="company-name-link" data-open-dossier="${lead.dot}" title="Click to view full dossier">
+              <button type="button" class="company-name-link" data-open-dossier="${lead.dot}" title="Click to inspect full carrier dossier">
                 ${lead.name}
               </button>
-              ${occ > 1 ? `<span class="occ-badge" title="Appeared in ${occ} register filings">${occ}x</span>` : ''}
+              ${occ > 1 ? `<span class="occ-badge" title="Appeared in ${occ} separate daily register filings — High intent">${occ}x Filed</span>` : ''}
             </div>
           </td>
 
           <!-- Contact & 1-Click Call -->
           <td class="col-contact">
             <div class="contact-cell-wrap">
-              <span class="officer-name">${lead.officer || '—'}</span>
+              <span class="officer-name" title="Primary Contact / Officer">${lead.officer || '—'}</span>
               <div class="phone-actions-row">
                 ${cleanPhone ? `
                   <a href="tel:${cleanPhone}" class="tel-link" title="Call ${phone}" onclick="event.stopPropagation()">
@@ -245,7 +248,7 @@ export class ProspectsTableComponent {
 
           <!-- Filing Date -->
           <td class="col-date">
-            <span class="date-val monospace">${lead.filing_date || '—'}</span>
+            <span class="date-val monospace" title="FMCSA Register filing date">${lead.filing_date || '—'}</span>
           </td>
 
           <!-- Applied Categories -->
@@ -258,7 +261,7 @@ export class ProspectsTableComponent {
 
           <!-- Action Dossier Trigger -->
           <td class="col-action" onclick="event.stopPropagation()">
-            <button type="button" class="btn btn-ghost btn-xs dossier-btn" data-open-dossier="${lead.dot}">
+            <button type="button" class="btn btn-ghost btn-xs dossier-btn" data-open-dossier="${lead.dot}" title="Open dossier">
               <span>Dossier</span>
               ${renderIcon('chevron-right', 12)}
             </button>

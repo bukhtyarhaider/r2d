@@ -53,7 +53,17 @@ const ICONS = {
   'calendar': '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
   'sparkles': '<path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>',
   'chevron-down': '<path d="m6 9 6 6 6-6"/>',
-  'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>'
+  'arrow-left': '<path d="m12 19-7-7 7-7"/><path d="M19 12H5"/>',
+  'arrow-right': '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
+  'zap': '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
+  'repeat': '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+  'info': '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/>',
+  'filter': '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
+  'layers': '<path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m22 12.5-8.58 3.91a2 2 0 0 1-1.66 0L2 12.5"/><path d="m22 17.5-8.58 3.91a2 2 0 0 1-1.66 0L2 17.5"/>',
+  'file-check': '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="m9 15 2 2 4-4"/>',
+  'clock': '<circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/>',
+  'hash': '<line x1="4" x2="20" y1="9" y2="9"/><line x1="4" x2="20" y1="15" y2="15"/><line x1="10" x2="8" y1="3" y2="21"/><line x1="16" x2="14" y1="3" y2="21"/>',
+  'help-circle': '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" x2="12.01" y1="17" y2="17"/>'
 };
 
 function renderIcon(name, size = 16, className = '') {
@@ -724,6 +734,9 @@ class HeaderComponent {
       tab.classList.toggle('active', match);
       tab.setAttribute('aria-selected', match ? 'true' : 'false');
     });
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+      panel.classList.toggle('active', panel.id === `tab-${activeTab}`);
+    });
   }
 
   updateBadges(state) {
@@ -1113,7 +1126,7 @@ class FilterBarComponent {
     // 3. Visible count
     if (this.visibleBadge) {
       const count = state.filteredProspects?.length || 0;
-      this.visibleBadge.textContent = `${format(count)} matching`;
+      this.visibleBadge.textContent = `${format(count)} ${count === 1 ? 'carrier' : 'carriers'} matching`;
     }
 
     // 4. Populate category options if empty
@@ -1132,16 +1145,16 @@ class FilterBarComponent {
     const selCount = state.selectedDots.size;
     if (this.selectionCount) {
       this.selectionCount.textContent = selCount === 0
-        ? 'No records selected'
+        ? 'No carriers selected'
         : `${selCount.toLocaleString()} carrier${selCount === 1 ? '' : 's'} selected`;
     }
 
     if (this.selectionHint) {
       this.selectionHint.textContent = selCount === 0
-        ? 'Select individual records or check header box for this page.'
+        ? 'Check individual carrier boxes or the header checkbox to select this page.'
         : state.allMatchingSelected
           ? `All ${selCount.toLocaleString()} carriers matching current filters are selected.`
-          : 'Selection active. Use action buttons to bulk process.';
+          : `${selCount.toLocaleString()} selected. Use action buttons to bulk process or export.`;
     }
 
     if (this.selectMatchingBtn) {
@@ -1348,6 +1361,8 @@ class ProspectsTableComponent {
 
       const st = lead._parsedState || '—';
       const city = lead._parsedCity || '';
+      const country = lead._parsedCountry;
+      const isCrossBorder = country && country !== 'US';
       const phone = lead.phone || '—';
       const cleanPhone = phone.replace(/[^0-9+]/g, '');
       const saferUrl = `https://safer.fmcsa.dot.gov/query.asp?searchtype=ANY&query_type=queryCarrierSnapshot&query_param=USDOT&query_string=${lead.dot}`;
@@ -1375,12 +1390,12 @@ class ProspectsTableComponent {
           <!-- USDOT & SAFER Link -->
           <td class="col-dot">
             <div class="dot-cell-wrap">
-              <button type="button" class="dot-copy-btn" data-copy-dot="${lead.dot}" title="Click to copy USDOT">
+              <button type="button" class="dot-copy-btn" data-copy-dot="${lead.dot}" title="Click to copy USDOT ${lead.dot}">
                 <span class="dot-prefix">DOT</span>
                 <span class="dot-num">${lead.dot}</span>
                 <span class="copy-glyph">${renderIcon('copy', 11)}</span>
               </button>
-              <a href="${saferUrl}" target="_blank" rel="noreferrer" class="safer-link-pill" title="Open FMCSA SAFER Company Snapshot" onclick="event.stopPropagation()">
+              <a href="${saferUrl}" target="_blank" rel="noreferrer" class="safer-link-pill" title="Open FMCSA SAFER Snapshot for USDOT ${lead.dot}" onclick="event.stopPropagation()">
                 <span>SAFER</span>
                 ${renderIcon('external-link', 10)}
               </a>
@@ -1391,6 +1406,7 @@ class ProspectsTableComponent {
           <td class="col-location">
             <div class="location-cell-wrap">
               ${st !== '—' ? `<span class="state-pill state-${st}">${st}</span>` : '<span class="state-pill state-NA">NA</span>'}
+              ${isCrossBorder ? `<span class="country-pill country-${country}">${country}</span>` : ''}
               <span class="city-name" title="${lead.address || ''}">${city || '—'}</span>
             </div>
           </td>
@@ -1398,17 +1414,17 @@ class ProspectsTableComponent {
           <!-- Carrier Legal Name -->
           <td class="col-company">
             <div class="company-cell-wrap">
-              <button type="button" class="company-name-link" data-open-dossier="${lead.dot}" title="Click to view full dossier">
+              <button type="button" class="company-name-link" data-open-dossier="${lead.dot}" title="Click to inspect full carrier dossier">
                 ${lead.name}
               </button>
-              ${occ > 1 ? `<span class="occ-badge" title="Appeared in ${occ} register filings">${occ}x</span>` : ''}
+              ${occ > 1 ? `<span class="occ-badge" title="Appeared in ${occ} separate daily register filings — High intent">${occ}x Filed</span>` : ''}
             </div>
           </td>
 
           <!-- Contact & 1-Click Call -->
           <td class="col-contact">
             <div class="contact-cell-wrap">
-              <span class="officer-name">${lead.officer || '—'}</span>
+              <span class="officer-name" title="Primary Contact / Officer">${lead.officer || '—'}</span>
               <div class="phone-actions-row">
                 ${cleanPhone ? `
                   <a href="tel:${cleanPhone}" class="tel-link" title="Call ${phone}" onclick="event.stopPropagation()">
@@ -1425,7 +1441,7 @@ class ProspectsTableComponent {
 
           <!-- Filing Date -->
           <td class="col-date">
-            <span class="date-val monospace">${lead.filing_date || '—'}</span>
+            <span class="date-val monospace" title="FMCSA Register filing date">${lead.filing_date || '—'}</span>
           </td>
 
           <!-- Applied Categories -->
@@ -1438,7 +1454,7 @@ class ProspectsTableComponent {
 
           <!-- Action Dossier Trigger -->
           <td class="col-action" onclick="event.stopPropagation()">
-            <button type="button" class="btn btn-ghost btn-xs dossier-btn" data-open-dossier="${lead.dot}">
+            <button type="button" class="btn btn-ghost btn-xs dossier-btn" data-open-dossier="${lead.dot}" title="Open dossier">
               <span>Dossier</span>
               ${renderIcon('chevron-right', 12)}
             </button>
@@ -1986,14 +2002,23 @@ class ArchiveManagerComponent {
   constructor(store) {
     this.store = store;
 
-    // Registers
+    // Registers Library Elements
     this.docsContainer = document.getElementById('documents');
     this.selectAllDocsBox = document.getElementById('select-all-documents');
     this.deleteDocsBtn = document.getElementById('delete-documents');
+    this.uploadDocsBtn = document.getElementById('registers-upload-btn');
     this.registerSummary = document.getElementById('register-summary');
     this.docSelectionCount = document.getElementById('document-selection-count');
+    this.registerSearchInput = document.getElementById('register-search');
+    this.registerSortSelect = document.getElementById('register-sort');
+    this.clearDocSelectionBtn = document.getElementById('clear-doc-selection');
 
-    // Trash
+    // Register Metric Elements
+    this.metricTotalRegisters = document.getElementById('reg-metric-total');
+    this.metricTotalLeads = document.getElementById('reg-metric-leads');
+    this.metricNewestDate = document.getElementById('reg-metric-newest');
+
+    // Trash Elements
     this.trashListContainer = document.getElementById('trash-list');
     this.trashSearchInput = document.getElementById('trash-search');
     this.trashFeedback = document.getElementById('trash-feedback');
@@ -2011,23 +2036,56 @@ class ArchiveManagerComponent {
     this.dismissUndoBtn = document.getElementById('dismiss-undo');
     this.lastDeletedId = null;
 
+    this.registerSearchQuery = '';
+    this.registerSortBy = 'newest';
+
     this.init();
   }
 
   init() {
+    // Search registers
+    if (this.registerSearchInput) {
+      this.registerSearchInput.addEventListener('input', (e) => {
+        this.registerSearchQuery = (e.target.value || '').trim().toLowerCase();
+        this.renderRegisters(this.store.getState());
+      });
+    }
+
+    // Sort registers
+    if (this.registerSortSelect) {
+      this.registerSortSelect.addEventListener('change', (e) => {
+        this.registerSortBy = e.target.value || 'newest';
+        this.renderRegisters(this.store.getState());
+      });
+    }
+
+    // Jump to Upload tab from Saved Registers
+    if (this.uploadDocsBtn) {
+      this.uploadDocsBtn.addEventListener('click', () => {
+        this.store.setState({ activeTab: 'upload' }, 'tabChange');
+      });
+    }
+
     // Select all registers
     if (this.selectAllDocsBox) {
       this.selectAllDocsBox.addEventListener('change', (e) => {
         const { registers } = this.store.getState();
         const next = new Set();
         if (e.target.checked) {
-          registers.forEach(d => next.add(d.name || d.filename));
+          registers.forEach(d => next.add(d.id || d.name || d.filename));
         }
         this.store.setState({ selectedDocuments: next }, 'docSelectionChange');
       });
     }
 
-    // Delete registers button
+    // Clear selection button
+    if (this.clearDocSelectionBtn) {
+      this.clearDocSelectionBtn.addEventListener('click', () => {
+        this.store.setState({ selectedDocuments: new Set() }, 'docSelectionChange');
+      });
+    }
+
+    // Delete selected registers button
     if (this.deleteDocsBtn) {
       this.deleteDocsBtn.addEventListener('click', () => {
         const { selectedDocuments } = this.store.getState();
@@ -2059,6 +2117,50 @@ class ArchiveManagerComponent {
       });
     }
 
+    // Event delegation on document cards
+    if (this.docsContainer) {
+      this.docsContainer.addEventListener('click', (e) => {
+        // Single delete button
+        const delBtn = e.target.closest('[data-delete-doc]');
+        if (delBtn) {
+          e.stopPropagation();
+          const docId = delBtn.getAttribute('data-delete-doc');
+          this.openDocumentDeleteDialog([docId]);
+          return;
+        }
+
+        // Filter prospects by register date/name
+        const filterBtn = e.target.closest('[data-filter-register]');
+        if (filterBtn) {
+          e.stopPropagation();
+          const registerQuery = filterBtn.getAttribute('data-filter-register');
+          this.filterProspectsByRegister(registerQuery);
+          return;
+        }
+
+        // Card checkbox click
+        const checkbox = e.target.closest('.doc-checkbox');
+        if (checkbox) {
+          const docId = checkbox.getAttribute('data-doc-id');
+          const next = new Set(this.store.getState().selectedDocuments);
+          if (checkbox.checked) next.add(docId);
+          else next.delete(docId);
+          this.store.setState({ selectedDocuments: next }, 'docSelectionChange');
+          return;
+        }
+
+        // Clicking card body toggles selection (unless clicking buttons/links)
+        const card = e.target.closest('.document-card');
+        if (card && !e.target.closest('button') && !e.target.closest('a') && !e.target.closest('input')) {
+          const docId = card.getAttribute('data-doc-id');
+          const next = new Set(this.store.getState().selectedDocuments);
+          if (next.has(docId)) next.delete(docId);
+          else next.add(docId);
+          this.store.setState({ selectedDocuments: next }, 'docSelectionChange');
+        }
+      });
+    }
+
     // Trash search
     if (this.trashSearchInput) {
       this.trashSearchInput.addEventListener('input', (e) => {
@@ -2074,68 +2176,188 @@ class ArchiveManagerComponent {
     });
   }
 
+  filterProspectsByRegister(query) {
+    if (!query) return;
+    this.store.setFilters({ search: query, view: 'relevant' });
+    this.store.setState({ activeTab: 'prospects' }, 'tabChange');
+    const searchInput = document.getElementById('search');
+    if (searchInput) searchInput.value = query;
+    Toast.info(`Showing carrier prospects matching "${query}"`);
+  }
+
   renderRegisters(state) {
     if (!this.docsContainer) return;
-    const registers = state.registers || [];
+    const rawRegisters = state.registers || [];
     const selected = state.selectedDocuments || new Set();
 
+    // Compute metrics
+    const totalCount = rawRegisters.length;
+    let totalLeadsCount = 0;
+    let newestDateStr = '—';
+
+    rawRegisters.forEach(doc => {
+      const c = doc.record_count || doc.records?.length || doc.records || doc.lead_count || 0;
+      totalLeadsCount += Number(c) || 0;
+      const d = doc.register_date || doc.date;
+      if (d && (newestDateStr === '—' || d > newestDateStr)) {
+        newestDateStr = d;
+      }
+    });
+
+    if (this.metricTotalRegisters) this.metricTotalRegisters.textContent = totalCount.toLocaleString();
+    if (this.metricTotalLeads) this.metricTotalLeads.textContent = totalLeadsCount.toLocaleString();
+    if (this.metricNewestDate) this.metricNewestDate.textContent = newestDateStr;
+
     if (this.registerSummary) {
-      this.registerSummary.textContent = `${registers.length.toLocaleString()} daily register archives processed and stored in local history.`;
+      this.registerSummary.textContent = `${totalCount.toLocaleString()} daily register bulletin${totalCount === 1 ? '' : 's'} archived · ${totalLeadsCount.toLocaleString()} carrier records deduplicated.`;
     }
 
     if (this.docSelectionCount) {
       this.docSelectionCount.textContent = selected.size > 0 ? `(${selected.size} selected)` : '';
     }
 
-    if (this.deleteDocsBtn) {
-      this.deleteDocsBtn.disabled = selected.size === 0;
+    if (this.clearDocSelectionBtn) {
+      this.clearDocSelectionBtn.hidden = selected.size === 0;
     }
 
+    if (this.deleteDocsBtn) {
+      this.deleteDocsBtn.disabled = selected.size === 0;
+      const delText = this.deleteDocsBtn.querySelector('span:last-child');
+      if (delText) {
+        delText.textContent = selected.size > 0 ? `Delete Selected (${selected.size})` : 'Delete selected registers';
+      }
+    }
+
+    if (this.selectAllDocsBox) {
+      this.selectAllDocsBox.checked = totalCount > 0 && selected.size === totalCount;
+    }
+
+    // Filter by search query
+    let registers = rawRegisters;
+    if (this.registerSearchQuery) {
+      registers = registers.filter(d => {
+        const name = (d.name || d.filename || '').toLowerCase();
+        const date = (d.register_date || d.date || '').toLowerCase();
+        return name.includes(this.registerSearchQuery) || date.includes(this.registerSearchQuery);
+      });
+    }
+
+    // Sort
+    registers = [...registers].sort((a, b) => {
+      const dateA = a.register_date || a.date || '';
+      const dateB = b.register_date || b.date || '';
+      const nameA = a.name || a.filename || '';
+      const nameB = b.name || b.filename || '';
+      const countA = Number(a.record_count || a.records?.length || a.records || a.lead_count || 0);
+      const countB = Number(b.record_count || b.records?.length || b.records || b.lead_count || 0);
+
+      if (this.registerSortBy === 'newest') return dateB.localeCompare(dateA);
+      if (this.registerSortBy === 'oldest') return dateA.localeCompare(dateB);
+      if (this.registerSortBy === 'leads_high') return countB - countA;
+      if (this.registerSortBy === 'leads_low') return countA - countB;
+      if (this.registerSortBy === 'alpha') return nameA.localeCompare(nameB);
+      return 0;
+    });
+
     if (registers.length === 0) {
-      this.docsContainer.innerHTML = `
-        <div class="empty-docs-box">
-          <p>No saved FMCSA register PDF documents in local history.</p>
-        </div>
-      `;
+      if (rawRegisters.length === 0) {
+        this.docsContainer.innerHTML = `
+          <div class="empty-docs-box">
+            <div class="empty-icon-circle">
+              ${renderIcon('folder-archive', 36)}
+            </div>
+            <h3>No Saved Registers Yet</h3>
+            <p>Upload daily FMCSA Register PDFs in the Upload tab to populate your carrier prospect database and view archived daily bulletins here.</p>
+            <button type="button" class="btn btn-primary" onclick="document.querySelector('[data-tab=\\'upload\\']')?.click()">
+              ${renderIcon('upload-cloud', 15)}
+              <span>Upload Register PDFs</span>
+            </button>
+          </div>
+        `;
+      } else {
+        this.docsContainer.innerHTML = `
+          <div class="empty-docs-box">
+            <div class="empty-icon-circle">
+              ${renderIcon('search', 32)}
+            </div>
+            <h3>No Registers Found</h3>
+            <p>No saved register bulletins match "<strong>${this.escapeHTML(this.registerSearchQuery)}</strong>".</p>
+            <button type="button" class="btn btn-secondary btn-sm" id="reset-register-search">
+              ${renderIcon('filter-x', 14)}
+              <span>Clear search</span>
+            </button>
+          </div>
+        `;
+        const resetBtn = this.docsContainer.querySelector('#reset-register-search');
+        if (resetBtn) {
+          resetBtn.addEventListener('click', () => {
+            if (this.registerSearchInput) this.registerSearchInput.value = '';
+            this.registerSearchQuery = '';
+            this.renderRegisters(this.store.getState());
+          });
+        }
+      }
       return;
     }
 
     this.docsContainer.innerHTML = registers.map(doc => {
-      const name = doc.name || doc.filename || 'Register PDF';
-      const isSel = selected.has(name);
-      const count = doc.records || doc.lead_count || 0;
-      const date = doc.register_date || doc.date || '—';
+      const id = doc.id || doc.name || doc.filename;
+      const name = doc.filename || doc.name || 'FMCSA Register PDF';
+      const isSel = selected.has(id) || selected.has(name);
+      const count = Number(doc.record_count || doc.records?.length || doc.records || doc.lead_count || 0);
+      const date = doc.register_date || doc.date || 'Unspecified';
+      const pages = doc.pages ? `${doc.pages} ${doc.pages === 1 ? 'page' : 'pages'}` : null;
 
       return `
-        <div class="document-card ${isSel ? 'selected' : ''}">
+        <div class="document-card ${isSel ? 'selected' : ''}" data-doc-id="${id}" tabindex="0" role="checkbox" aria-checked="${isSel}">
           <div class="document-card-top">
-            <label class="custom-checkbox">
-              <input type="checkbox" class="doc-checkbox" data-doc="${name}" ${isSel ? 'checked' : ''}>
+            <label class="custom-checkbox" onclick="event.stopPropagation()">
+              <input type="checkbox" class="doc-checkbox" data-doc-id="${id}" ${isSel ? 'checked' : ''} aria-label="Select register ${name}">
               <span class="checkbox-mark"></span>
             </label>
-            <span class="doc-file-tag">PDF</span>
+            <div class="doc-card-top-badges">
+              <span class="doc-file-tag">PDF</span>
+              <button type="button" class="doc-action-delete" data-delete-doc="${id}" title="Delete this register bulletin" aria-label="Delete ${name}">
+                ${renderIcon('trash-2', 13)}
+              </button>
+            </div>
           </div>
           <div class="document-card-body">
-            <h4 class="doc-title" title="${name}">${name}</h4>
-            <div class="doc-meta-row">
-              <span class="doc-meta-val">${renderIcon('calendar', 12)} ${date}</span>
-              <span class="doc-meta-val">${renderIcon('truck', 12)} ${count.toLocaleString()} leads</span>
+            <div class="doc-title-row">
+              <span class="doc-icon-wrap">${renderIcon('file-text', 16)}</span>
+              <h4 class="doc-title" title="${name}">${name}</h4>
             </div>
+            <div class="doc-meta-row">
+              <div class="doc-meta-chip" title="Filing / publication date">
+                ${renderIcon('calendar', 12)}
+                <span class="monospace">${date}</span>
+              </div>
+              <div class="doc-meta-chip leads" title="Total carriers extracted">
+                ${renderIcon('truck', 12)}
+                <strong>${count.toLocaleString()}</strong> carriers
+              </div>
+              ${pages ? `
+                <div class="doc-meta-chip pages" title="Document pages">
+                  ${renderIcon('layers', 12)}
+                  <span>${pages}</span>
+                </div>
+              ` : ''}
+            </div>
+          </div>
+          <div class="document-card-actions">
+            <button type="button" class="btn btn-secondary btn-xs filter-leads-btn" data-filter-register="${date !== 'Unspecified' ? date : name}" title="Show carriers from this register in Prospects">
+              ${renderIcon('filter', 12)}
+              <span>View Carriers</span>
+            </button>
           </div>
         </div>
       `;
     }).join('');
+  }
 
-    // Bind checkboxes
-    this.docsContainer.querySelectorAll('.doc-checkbox').forEach(box => {
-      box.addEventListener('change', (e) => {
-        const docName = box.getAttribute('data-doc');
-        const next = new Set(this.store.getState().selectedDocuments);
-        if (e.target.checked) next.add(docName);
-        else next.delete(docName);
-        this.store.setState({ selectedDocuments: next }, 'docSelectionChange');
-      });
-    });
+  escapeHTML(str) {
+    if (!str) return '';
+    return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
   renderTrash(state) {
@@ -2144,14 +2366,18 @@ class ArchiveManagerComponent {
     const query = (state.trashSearch || '').trim().toLowerCase();
 
     const filtered = query ? trash.filter(item => {
-      const hay = `${item.title || ''} ${item.kind || ''} ${(item.targets || []).join(' ')}`.toLowerCase();
+      const hay = `${item.title || item.label || ''} ${item.kind || ''} ${(item.targets || []).join(' ')}`.toLowerCase();
       return hay.includes(query);
     }) : trash;
 
     if (filtered.length === 0) {
       this.trashListContainer.innerHTML = `
         <div class="empty-trash-box">
-          <p>${trash.length === 0 ? 'Trash is clear. No deleted items.' : 'No deleted items match your search.'}</p>
+          <div class="empty-icon-circle">
+            ${renderIcon('trash-2', 32)}
+          </div>
+          <h3>${trash.length === 0 ? 'Trash is Empty' : 'No Deleted Items Match Search'}</h3>
+          <p>${trash.length === 0 ? 'No deleted carriers or registers in local storage. All records are currently active.' : 'Try searching with a different term.'}</p>
         </div>
       `;
       return;
@@ -2159,17 +2385,20 @@ class ArchiveManagerComponent {
 
     this.trashListContainer.innerHTML = filtered.map(item => {
       const id = item.id;
-      const title = item.title || `Deleted ${item.kind || 'items'}`;
+      const title = item.title || item.label || `Deleted ${item.kind || 'items'}`;
       const time = item.deleted_at ? new Date(item.deleted_at * 1000).toLocaleString() : 'Recently';
-      const count = item.targets?.length || 0;
+      const count = item.targets?.length || item.count || 0;
+      const isDoc = item.kind === 'documents';
 
       return `
         <div class="trash-item">
           <div class="trash-item-left">
-            <span class="trash-item-icon">${renderIcon('trash-2', 15)}</span>
+            <span class="trash-item-icon ${isDoc ? 'doc' : 'carrier'}">
+              ${renderIcon(isDoc ? 'folder-archive' : 'truck', 16)}
+            </span>
             <div class="trash-item-details">
               <strong>${title}</strong>
-              <span class="trash-item-meta">${count.toLocaleString()} ${item.kind === 'dots' ? 'carriers' : 'registers'} · ${time}</span>
+              <span class="trash-item-meta">${count.toLocaleString()} ${item.kind === 'dots' ? 'carriers' : 'registers'} · Deleted ${time}</span>
             </div>
           </div>
           <button type="button" class="btn btn-secondary btn-sm restore-item-btn" data-restore-id="${id}">
@@ -2189,21 +2418,30 @@ class ArchiveManagerComponent {
     });
   }
 
-  openDocumentDeleteDialog(docNames) {
+  openDocumentDeleteDialog(docKeys) {
     if (!this.deleteDialog) return;
     const desc = document.getElementById('delete-description');
     const preview = document.getElementById('delete-preview');
+    const registers = this.store.getState().registers || [];
+
+    // Map targets to exact document IDs and filenames
+    const resolvedDocs = docKeys.map(k => {
+      return registers.find(d => d.id === k || d.name === k || d.filename === k) || { id: k, filename: k };
+    });
+
+    const targetIds = resolvedDocs.map(d => d.id);
+    const targetNames = resolvedDocs.map(d => d.filename || d.name || d.id);
 
     this._pendingDeletionKind = 'documents';
-    this._pendingDeletionTargets = docNames;
+    this._pendingDeletionTargets = targetIds;
 
     if (desc) {
-      desc.textContent = `You are about to delete ${docNames.length.toLocaleString()} registered PDF${docNames.length === 1 ? '' : 's'}. Any USDOT supported by another active register remains in your prospect list.`;
+      desc.textContent = `You are about to delete ${targetNames.length.toLocaleString()} saved FMCSA register PDF${targetNames.length === 1 ? '' : 's'}. Any USDOT supported by another active register remains in your prospect list.`;
     }
 
     if (preview) {
-      preview.innerHTML = docNames.slice(0, 4).map(n => `<span class="preview-dot">${n}</span>`).join(' ') +
-        (docNames.length > 4 ? ` <span class="preview-more">+${(docNames.length - 4).toLocaleString()} more</span>` : '');
+      preview.innerHTML = targetNames.slice(0, 4).map(n => `<span class="preview-dot">${n}</span>`).join(' ') +
+        (targetNames.length > 4 ? ` <span class="preview-more">+${(targetNames.length - 4).toLocaleString()} more</span>` : '');
     }
 
     this.deleteDialog.showModal();
@@ -2286,6 +2524,76 @@ class ArchiveManagerComponent {
 }
 
 // =====================================================================
+// Module: components/Guide.js
+// =====================================================================
+/**
+ * R2D - Dispatch & Compliance Guide Component
+ * Developer: Bukhtyar Haider
+ */
+
+
+class GuideComponent {
+  constructor(store) {
+    this.store = store;
+    this.container = document.getElementById('tab-guide');
+    this.filterButtons = document.querySelectorAll('.guide-filter-btn');
+    this.searchInput = document.getElementById('guide-search');
+    this.cards = document.querySelectorAll('.guide-card');
+    this.activeFilter = 'all';
+
+    this.init();
+  }
+
+  init() {
+    // Topic filter buttons
+    this.filterButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        this.filterButtons.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        this.activeFilter = btn.getAttribute('data-guide-filter') || 'all';
+        this.applyFilters();
+      });
+    });
+
+    // Real-time guide search
+    if (this.searchInput) {
+      this.searchInput.addEventListener('input', () => {
+        this.applyFilters();
+      });
+    }
+
+    // Jump to Prospects or Upload from Guide tips
+    if (this.container) {
+      this.container.addEventListener('click', (e) => {
+        const jumpTab = e.target.closest('[data-jump-tab]');
+        if (jumpTab) {
+          const tab = jumpTab.getAttribute('data-jump-tab');
+          this.store.setState({ activeTab: tab }, 'tabChange');
+        }
+      });
+    }
+  }
+
+  applyFilters() {
+    const query = (this.searchInput?.value || '').trim().toLowerCase();
+
+    this.cards.forEach(card => {
+      const category = card.getAttribute('data-category') || 'general';
+      const text = card.textContent.toLowerCase();
+
+      const matchesFilter = this.activeFilter === 'all' || category === this.activeFilter;
+      const matchesSearch = !query || text.includes(query);
+
+      if (matchesFilter && matchesSearch) {
+        card.style.display = '';
+      } else {
+        card.style.display = 'none';
+      }
+    });
+  }
+}
+
+// =====================================================================
 // Module: components/ShortcutsModal.js
 // =====================================================================
 /**
@@ -2353,6 +2661,7 @@ class App {
     this.components.dossier = new CarrierDossierComponent(this.store);
     this.components.importer = new BatchImporterComponent(this.store);
     this.components.archive = new ArchiveManagerComponent(this.store);
+    this.components.guide = new GuideComponent(this.store);
     this.components.shortcuts = new ShortcutsModalComponent(this.store);
 
     // 3. Register global keyboard listeners

@@ -17,6 +17,7 @@ import { ProspectsTableComponent } from './components/ProspectsTable.js';
 import { CarrierDossierComponent } from './components/CarrierDossier.js';
 import { BatchImporterComponent } from './components/BatchImporter.js';
 import { ArchiveManagerComponent } from './components/ArchiveManager.js';
+import { GuideComponent } from './components/Guide.js';
 import { ShortcutsModalComponent } from './components/ShortcutsModal.js';
 
 export class App {
@@ -38,6 +39,7 @@ export class App {
     this.components.dossier = new CarrierDossierComponent(this.store);
     this.components.importer = new BatchImporterComponent(this.store);
     this.components.archive = new ArchiveManagerComponent(this.store);
+    this.components.guide = new GuideComponent(this.store);
     this.components.shortcuts = new ShortcutsModalComponent(this.store);
 
     // 3. Register global keyboard listeners

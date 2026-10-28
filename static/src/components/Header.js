@@ -66,6 +66,9 @@ export class HeaderComponent {
       tab.classList.toggle('active', match);
       tab.setAttribute('aria-selected', match ? 'true' : 'false');
     });
+    document.querySelectorAll('.tab-panel').forEach(panel => {
+      panel.classList.toggle('active', panel.id === `tab-${activeTab}`);
+    });
   }
 
   updateBadges(state) {

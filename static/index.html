@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="R2D - Register to Dot · FMCSA Dispatch Register Prospect Intelligence">
   <title>R2D · Register to Dot — FMCSA Dispatch Register Prospect Intelligence</title>
-  <link rel="stylesheet" href="/styles.css?v=4">
-  <script src="/app.js?v=4" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=5">
+  <script src="/app.js?v=5" defer></script>
 </head>
 <body>
   <!-- Topbar Header with Brand, Navigation Tabs, and Controls -->
@@ -38,7 +38,7 @@
         </button>
         <button class="nav-tab" data-tab="upload" aria-selected="false" role="tab">
           <span class="nav-icon" data-lucide="upload-cloud" data-size="16"></span>
-          <span class="nav-label">Upload & Extract</span>
+          <span class="nav-label">Upload Registers</span>
           <span id="nav-count-upload" class="nav-badge" hidden>0</span>
         </button>
         <button class="nav-tab" data-tab="library" aria-selected="false" role="tab">
@@ -48,12 +48,12 @@
         </button>
         <button class="nav-tab" data-tab="trash" aria-selected="false" role="tab">
           <span class="nav-icon" data-lucide="trash-2" data-size="16"></span>
-          <span class="nav-label">Trash</span>
+          <span class="nav-label">Trash & Archive</span>
           <span id="nav-count-trash" class="nav-badge">0</span>
         </button>
         <button class="nav-tab" data-tab="guide" aria-selected="false" role="tab">
           <span class="nav-icon" data-lucide="book-open" data-size="16"></span>
-          <span class="nav-label">Guide</span>
+          <span class="nav-label">Dispatch Guide</span>
         </button>
       </nav>
 
@@ -94,17 +94,17 @@
         </div>
         
         <div class="result-actions">
-          <button id="refresh-history" class="btn btn-secondary btn-sm" title="Check for database updates">
+          <button id="refresh-history" class="btn btn-secondary btn-sm" title="Check database for updates">
             <span data-lucide="refresh-cw" data-size="14"></span>
-            <span>Refresh records</span>
+            <span>Refresh Records</span>
           </button>
-          <button id="open-trash" class="btn btn-secondary btn-sm">
+          <button id="open-trash" class="btn btn-secondary btn-sm" title="Review deleted items">
             <span data-lucide="trash-2" data-size="14"></span>
             <span>Trash (<span id="trash-count">0</span>)</span>
           </button>
           <button id="clear" class="btn btn-ghost btn-sm" title="Reset all active search filters">
             <span data-lucide="filter-x" data-size="14"></span>
-            <span>Clear filters</span>
+            <span>Clear Filters</span>
           </button>
         </div>
       </div>
@@ -115,8 +115,8 @@
           <span data-lucide="alert-triangle" data-size="16"></span>
         </div>
         <div class="notice-content">
-          <strong>Prospects · Authority Unverified:</strong>
-          <span>These are FMCSA register applications. Verify current operating authority and equipment fit on SAFER before dispatch outreach.</span>
+          <strong>Prospect Intelligence Notice:</strong>
+          <span>FMCSA Register records are applications for operating authority. Verify active certificate and BMC-91X insurance filings on SAFER prior to dispatch outreach.</span>
         </div>
       </div>
 
@@ -125,27 +125,27 @@
         <div class="filter-top-row">
           <!-- Segmented View Switcher -->
           <div class="tabs view-tabs" role="group" aria-label="Result groups">
-            <button data-view="relevant" class="view-tab active" aria-pressed="true">
-              <span>Relevant</span>
+            <button data-view="relevant" class="view-tab active" aria-pressed="true" title="High-intent for-hire property & movers">
+              <span>Relevant Prospects</span>
               <span id="count-relevant" class="tab-count-pill">0</span>
             </button>
-            <button data-view="review" class="view-tab" aria-pressed="false">
-              <span>Review</span>
+            <button data-view="review" class="view-tab" aria-pressed="false" title="Enterprise, cross-border, or unverified carriers">
+              <span>Manual Review</span>
               <span id="count-review" class="tab-count-pill">0</span>
             </button>
-            <button data-view="excluded" class="view-tab" aria-pressed="false">
-              <span>Excluded</span>
+            <button data-view="excluded" class="view-tab" aria-pressed="false" title="Freight brokers, forwarders & passenger operators">
+              <span>Excluded Group</span>
               <span id="count-excluded" class="tab-count-pill">0</span>
             </button>
-            <button data-view="all" class="view-tab" aria-pressed="false">
-              <span>All Records</span>
+            <button data-view="all" class="view-tab" aria-pressed="false" title="All deduplicated carrier records">
+              <span>All Carriers</span>
             </button>
           </div>
 
           <!-- Quick Search Field -->
           <div class="search-box">
             <span class="search-icon" data-lucide="search" data-size="15"></span>
-            <input id="search" type="search" placeholder="Search USDOT, company, phone, officer, city, state…" aria-label="Search results">
+            <input id="search" type="search" placeholder="Search USDOT, company name, phone, officer, city, state…" aria-label="Search results">
             <kbd class="search-kbd" title="Press / to search">/</kbd>
           </div>
         </div>
@@ -154,15 +154,15 @@
           <div class="filter-controls">
             <div class="select-group">
               <span class="select-icon" data-lucide="sliders-horizontal" data-size="13"></span>
-              <label for="category">Category</label>
+              <label for="category">Authority Type</label>
               <select id="category">
-                <option value="">All categories</option>
+                <option value="">All authority types</option>
               </select>
             </div>
 
             <div class="select-group">
               <span class="select-icon" data-lucide="globe" data-size="13"></span>
-              <label for="country">Country</label>
+              <label for="country">Country Scope</label>
               <select id="country">
                 <option value="">All countries</option>
                 <option value="US">United States (US)</option>
@@ -174,7 +174,7 @@
             <label class="custom-checkbox">
               <input id="movers" type="checkbox" checked>
               <span class="checkbox-mark"></span>
-              <span class="checkbox-text">Include household-goods movers in Relevant</span>
+              <span class="checkbox-text">Include Household Goods Movers (HHG)</span>
             </label>
           </div>
 
@@ -191,20 +191,20 @@
       <div class="export-bar">
         <div class="export-scope-info">
           <span class="export-scope-dot"></span>
-          <span id="export-scope">Exports use current active filters</span>
+          <span id="export-scope">Exports apply to active filtered view</span>
         </div>
         <div class="export-buttons">
-          <button id="export-csv" class="btn btn-secondary btn-sm" title="Export matching records as CSV">
+          <button id="export-csv" class="btn btn-secondary btn-sm" title="Export matching carrier records as CSV spreadsheet">
             <span data-lucide="download" data-size="14"></span>
-            <span>Download CSV</span>
+            <span>Export CSV</span>
           </button>
-          <button id="export-dots" class="btn btn-secondary btn-sm" title="Export plain list of USDOT numbers">
+          <button id="export-dots" class="btn btn-secondary btn-sm" title="Export plain list of USDOT numbers for SAFER bulk query">
             <span data-lucide="file-text" data-size="14"></span>
-            <span>DOT numbers (.txt)</span>
+            <span>Export DOT List (.txt)</span>
           </button>
-          <button id="export-audit" class="btn btn-ghost btn-sm" title="Export complete audit JSON with all original evidence">
+          <button id="export-audit" class="btn btn-ghost btn-sm" title="Export complete audit JSON with all source filing evidence">
             <span data-lucide="file-code" data-size="14"></span>
-            <span>Full audit JSON</span>
+            <span>Export Audit JSON</span>
           </button>
         </div>
       </div>
@@ -256,14 +256,14 @@
                   <span class="checkbox-mark"></span>
                 </label>
               </th>
-              <th scope="col" class="col-status">Status</th>
-              <th scope="col" class="col-dot">USDOT / SAFER</th>
-              <th scope="col" class="col-location">State / City</th>
+              <th scope="col" class="col-status">Classification</th>
+              <th scope="col" class="col-dot">USDOT · SAFER</th>
+              <th scope="col" class="col-location">Location</th>
               <th scope="col" class="col-company">Carrier Legal Name</th>
-              <th scope="col" class="col-contact">Contact & Call</th>
+              <th scope="col" class="col-contact">Primary Contact & Phone</th>
               <th scope="col" class="col-date">Filing Date</th>
-              <th scope="col" class="col-categories">Authority Scope</th>
-              <th scope="col" class="col-action">Intel</th>
+              <th scope="col" class="col-categories">Applied Authority</th>
+              <th scope="col" class="col-action">Actions</th>
             </tr>
           </thead>
           <tbody id="rows"></tbody>
@@ -401,23 +401,81 @@
       <div class="library-deck">
         <div class="document-heading">
           <div>
-            <p class="eyebrow">REGISTER ARCHIVES</p>
-            <h2>Imported FMCSA Registers</h2>
-            <p class="subtitle" id="register-summary"></p>
+            <p class="eyebrow">REGISTER ARCHIVES & SOURCE EVIDENCE</p>
+            <h2>Saved FMCSA Registers</h2>
+            <p class="subtitle" id="register-summary">Loading saved register archives…</p>
           </div>
-          <button id="delete-documents" class="btn btn-danger btn-sm" disabled>
-            <span data-lucide="trash-2" data-size="13"></span>
-            <span>Delete selected registers</span>
-          </button>
+          <div class="heading-actions">
+            <button id="registers-upload-btn" class="btn btn-primary btn-sm" type="button" title="Upload new register PDFs">
+              <span data-lucide="upload-cloud" data-size="14"></span>
+              <span>Upload Registers</span>
+            </button>
+            <button id="delete-documents" class="btn btn-danger btn-sm" disabled>
+              <span data-lucide="trash-2" data-size="13"></span>
+              <span>Delete selected registers</span>
+            </button>
+          </div>
         </div>
 
+        <!-- Saved Registers Metrics HUD -->
+        <div class="library-metrics-grid">
+          <div class="reg-metric-card">
+            <div class="reg-metric-header">
+              <span class="reg-metric-label">ARCHIVED BULLETINS</span>
+              <span class="reg-metric-icon emerald"><span data-lucide="folder-archive" data-size="16"></span></span>
+            </div>
+            <strong id="reg-metric-total" class="reg-metric-value monospace">0</strong>
+            <span class="reg-metric-hint">FMCSA daily register PDF documents</span>
+          </div>
+
+          <div class="reg-metric-card">
+            <div class="reg-metric-header">
+              <span class="reg-metric-label">EXTRACTED CARRIERS</span>
+              <span class="reg-metric-icon cyan"><span data-lucide="truck" data-size="16"></span></span>
+            </div>
+            <strong id="reg-metric-leads" class="reg-metric-value monospace">0</strong>
+            <span class="reg-metric-hint">Total applicants deduplicated</span>
+          </div>
+
+          <div class="reg-metric-card">
+            <div class="reg-metric-header">
+              <span class="reg-metric-label">NEWEST REGISTER</span>
+              <span class="reg-metric-icon amber"><span data-lucide="calendar" data-size="16"></span></span>
+            </div>
+            <strong id="reg-metric-newest" class="reg-metric-value monospace">—</strong>
+            <span class="reg-metric-hint">Latest publication date on file</span>
+          </div>
+        </div>
+
+        <!-- Library Filter & Selection Toolbar -->
         <div class="library-toolbar">
-          <label class="custom-checkbox">
-            <input id="select-all-documents" type="checkbox">
-            <span class="checkbox-mark"></span>
-            <span>Select all saved registers</span>
-            <span id="document-selection-count" class="doc-selection-count"></span>
-          </label>
+          <div class="library-toolbar-left">
+            <div class="library-search-box">
+              <span class="search-icon" data-lucide="search" data-size="14"></span>
+              <input id="register-search" type="search" placeholder="Search saved registers by filename or date…" aria-label="Search registers">
+            </div>
+            <div class="select-group library-sort-group">
+              <span class="select-icon" data-lucide="sliders-horizontal" data-size="13"></span>
+              <label for="register-sort">Sort</label>
+              <select id="register-sort">
+                <option value="newest">Newest filing date</option>
+                <option value="oldest">Oldest filing date</option>
+                <option value="leads_high">Most carriers extracted</option>
+                <option value="leads_low">Fewest carriers extracted</option>
+                <option value="alpha">Filename (A-Z)</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="library-toolbar-right">
+            <label class="custom-checkbox">
+              <input id="select-all-documents" type="checkbox">
+              <span class="checkbox-mark"></span>
+              <span>Select all saved registers</span>
+              <span id="document-selection-count" class="doc-selection-count"></span>
+            </label>
+            <button id="clear-doc-selection" class="btn btn-ghost btn-xs" type="button" hidden>Clear</button>
+          </div>
         </div>
 
         <div id="documents" class="documents-grid"></div>
@@ -462,60 +520,228 @@
 
     <!-- TAB 5: DISPATCH GUIDELINES & SPECIFICATIONS -->
     <section id="tab-guide" class="tab-panel" role="tabpanel" aria-label="Dispatch Guidelines">
-      <div class="guide-deck">
-        <article class="guide-card">
-          <div class="guide-card-icon emerald">
-            <span data-lucide="truck" data-size="22"></span>
+      <div class="guide-container">
+        <!-- Hero Header -->
+        <div class="guide-hero">
+          <div class="guide-hero-content">
+            <div class="guide-badge-row">
+              <span class="guide-hero-badge">FIELD MANUAL</span>
+              <span class="guide-hero-sub">FMCSA Dispatch Intelligence & Regulatory Guide</span>
+            </div>
+            <h2>FMCSA Dispatch Prospecting & Regulatory Field Manual</h2>
+            <p class="guide-subtitle">A practical operational reference for identifying high-intent carrier applicants, performing rapid 4-point SAFER compliance checks, and executing high-conversion outbound dispatch outreach.</p>
           </div>
-          <p class="eyebrow">CORE PROSPECTS</p>
-          <h3>Property / Freight Carriers</h3>
-          <p>Applicants for <strong>Motor Carrier of Property (Except Household Goods)</strong>. These are for-hire commercial trucking carriers transporting general freight and represent the highest-intent targets for independent freight dispatchers.</p>
-        </article>
+        </div>
 
-        <article class="guide-card">
-          <div class="guide-card-icon amber">
-            <span data-lucide="package" data-size="22"></span>
+        <!-- Interactive Filter & Search Toolbar -->
+        <div class="guide-toolbar">
+          <div class="guide-filter-pills" role="tablist" aria-label="Guide topics">
+            <button type="button" class="guide-filter-btn active" data-guide-filter="all">All Topics</button>
+            <button type="button" class="guide-filter-btn" data-guide-filter="targeting">Prospect Targeting</button>
+            <button type="button" class="guide-filter-btn" data-guide-filter="compliance">Compliance & SAFER</button>
+            <button type="button" class="guide-filter-btn" data-guide-filter="exclusions">Excluded Entities</button>
+            <button type="button" class="guide-filter-btn" data-guide-filter="workflow">Workflow & Speed Keys</button>
           </div>
-          <p class="eyebrow">OPTIONAL SHORTLIST</p>
-          <h3>Household Goods Movers</h3>
-          <p>Applicants for <strong>Motor Carrier of Household Goods</strong>. They transport personal belongings and furniture. You can include or exclude movers from the Relevant tab at any time using the filter toggle.</p>
-        </article>
+          <div class="guide-search-box">
+            <span class="search-icon" data-lucide="search" data-size="14"></span>
+            <input id="guide-search" type="search" placeholder="Search guidelines, rules, or tips…" aria-label="Search guide">
+          </div>
+        </div>
 
-        <article class="guide-card">
-          <div class="guide-card-icon sky">
-            <span data-lucide="globe" data-size="22"></span>
-          </div>
-          <p class="eyebrow">SPECIALTY FREIGHT</p>
-          <h3>Enterprise Property Carriers</h3>
-          <p>FMCSA designates Enterprise carriers as international cargo operators. They receive an automated <em>Operating Scope Check</em> flag to remind dispatch teams to verify international or cross-border lanes.</p>
-        </article>
+        <!-- Guide Cards Grid -->
+        <div class="guide-deck">
+          <!-- Card 1: Property / Freight Carriers -->
+          <article class="guide-card" data-category="targeting">
+            <div class="guide-card-header">
+              <span class="guide-tag emerald">CORE TARGET · RELEVANT</span>
+              <div class="guide-card-icon emerald">
+                <span data-lucide="truck" data-size="20"></span>
+              </div>
+            </div>
+            <h3>For-Hire Property / Freight Carriers</h3>
+            <p>Applicants for <strong>Motor Carrier of Property (Except Household Goods)</strong>. These are for-hire commercial trucking companies operating dry van, reefer, and flatbed freight. Because they are in the active phase of launching operations and obtaining authority, they represent the single highest-intent client segment for independent freight dispatchers.</p>
+            <div class="guide-tip-box">
+              <span class="guide-tip-icon" data-lucide="zap" data-size="14"></span>
+              <div>
+                <strong>Tactical Outreach Window:</strong>
+                <span>Contact carriers within 24–48 hours of register publication. New entrants are eager to secure freight partners before competing dispatchers flood them.</span>
+              </div>
+            </div>
+          </article>
 
-        <article class="guide-card">
-          <div class="guide-card-icon indigo">
-            <span data-lucide="globe" data-size="22"></span>
-          </div>
-          <p class="eyebrow">CROSS-BORDER</p>
-          <h3>Mexico-Domiciled Carriers</h3>
-          <p>Carriers domiciled in Mexico operating in US commercial zones or beyond. They carry a <em>Cross-Border Scope Verification</em> flag. Mexico-domiciled private carriers are excluded unless holding a for-hire carrier authority.</p>
-        </article>
+          <!-- Card 2: Household Goods Movers -->
+          <article class="guide-card" data-category="targeting">
+            <div class="guide-card-header">
+              <span class="guide-tag amber">SPECIALIZED NICHE · TOGGLEABLE</span>
+              <div class="guide-card-icon amber">
+                <span data-lucide="package" data-size="20"></span>
+              </div>
+            </div>
+            <h3>Household Goods (HHG) Movers</h3>
+            <p>Applicants for <strong>Motor Carrier of Household Goods</strong>. They transport personal residential items, commercial office furniture, and residential relocations. In R2D, you can include or exclude movers from your Relevant prospects list at any time using the checkbox filter.</p>
+            <div class="guide-tip-box">
+              <span class="guide-tip-icon" data-lucide="info" data-size="14"></span>
+              <div>
+                <strong>Niche Opportunity:</strong>
+                <span>Ideal target if your dispatch agency specializes in box trucks, straight trucks, or local distribution logistics rather than standard 53ft OTR dry van loads.</span>
+              </div>
+            </div>
+          </article>
 
-        <article class="guide-card">
-          <div class="guide-card-icon red">
-            <span data-lucide="ban" data-size="22"></span>
-          </div>
-          <p class="eyebrow">EXCLUDED ENTITIES</p>
-          <h3>Brokers & Forwarders</h3>
-          <p>Freight brokers and freight forwarders arrange transportation but do not operate trucks. Passenger operators transport people. These are strictly excluded to protect dispatchers from dialing intermediaries.</p>
-        </article>
+          <!-- Card 3: Enterprise Property Carriers -->
+          <article class="guide-card" data-category="targeting">
+            <div class="guide-card-header">
+              <span class="guide-tag sky">COMMERCIAL FREIGHT</span>
+              <div class="guide-card-icon sky">
+                <span data-lucide="globe" data-size="20"></span>
+              </div>
+            </div>
+            <h3>Enterprise Property Carriers</h3>
+            <p>Classified by FMCSA as enterprise commercial operators, frequently managing specialized international, cross-state, or multi-jurisdiction freight corridors. R2D automatically flags them with an <em>Operating Scope Check</em> reminder to verify regional and lane requirements.</p>
+            <div class="guide-tip-box">
+              <span class="guide-tip-icon" data-lucide="file-check" data-size="14"></span>
+              <div>
+                <strong>Fleet Verification:</strong>
+                <span>Confirm operating lanes, equipment certifications, and tractor counts on SAFER prior to booking high-volume corporate freight.</span>
+              </div>
+            </div>
+          </article>
 
-        <article class="guide-card">
-          <div class="guide-card-icon teal">
-            <span data-lucide="shield-check" data-size="22"></span>
-          </div>
-          <p class="eyebrow">VERIFICATION PROTOCOL</p>
-          <h3>SAFER Authority Check</h3>
-          <p>The FMCSA Register is an <strong>application notice</strong>, not granted operating authority. Before dispatching or booking freight, always verify the active certificate and insurance filings on SAFER.</p>
-        </article>
+          <!-- Card 4: Mexico-Domiciled Carriers -->
+          <article class="guide-card" data-category="targeting">
+            <div class="guide-card-header">
+              <span class="guide-tag indigo">CROSS-BORDER FREIGHT</span>
+              <div class="guide-card-icon indigo">
+                <span data-lucide="map-pin" data-size="20"></span>
+              </div>
+            </div>
+            <h3>Mexico-Domiciled Motor Carriers</h3>
+            <p>Carriers domiciled in Mexico authorized to operate in US border commercial zones or designated long-haul corridors. Marked in R2D with <em>Cross-Border Verification</em>. Private Mexican carriers are quarantined unless holding certified for-hire authority.</p>
+            <div class="guide-tip-box">
+              <span class="guide-tip-icon" data-lucide="shield-check" data-size="14"></span>
+              <div>
+                <strong>Border Compliance Check:</strong>
+                <span>Verify active CABT safety inspection decals and US commercial zone operating permits before arranging interchange freight.</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 5: Freight Brokers & Forwarders -->
+          <article class="guide-card" data-category="exclusions">
+            <div class="guide-card-header">
+              <span class="guide-tag rose">AUTOMATICALLY EXCLUDED</span>
+              <div class="guide-card-icon rose">
+                <span data-lucide="ban" data-size="20"></span>
+              </div>
+            </div>
+            <h3>Freight Brokers & Forwarders</h3>
+            <p>Freight brokers and freight forwarders arrange and intermediate transportation but do not own or operate commercial motor vehicles. Passenger operators transport people. R2D automatically quarantines these entities in the Excluded view to protect you from dialer fatigue.</p>
+            <div class="guide-tip-box danger">
+              <span class="guide-tip-icon" data-lucide="alert-triangle" data-size="14"></span>
+              <div>
+                <strong>Zero Waste Outbound:</strong>
+                <span>Dispatchers represent motor carriers, not brokers. Keeping brokers quarantined ensures 100% of your calling list consists of asset-based carriers.</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 6: SAFER Verification Protocol -->
+          <article class="guide-card" data-category="compliance">
+            <div class="guide-card-header">
+              <span class="guide-tag teal">COMPLIANCE PROTOCOL</span>
+              <div class="guide-card-icon teal">
+                <span data-lucide="shield-check" data-size="20"></span>
+              </div>
+            </div>
+            <h3>The SAFER 4-Point Authority Check</h3>
+            <p>The FMCSA Register is an <strong>application notice</strong>, not granted operating authority. Carriers must submit insurance and agent filings before authority is activated. Run this rapid 4-point check via the 1-Click SAFER link:</p>
+            <ul class="guide-checklist">
+              <li><strong>1. Operating Status:</strong> Check that status reads <em>AUTHORIZED FOR Property</em>.</li>
+              <li><strong>2. Insurance Filings:</strong> Verify active BMC-91X ($750k or $1M BIPD).</li>
+              <li><strong>3. BOC-3 Process Agent:</strong> Confirm active process agent filing.</li>
+              <li><strong>4. Safety Rating:</strong> Verify rating is <em>None</em> (new entrant) or <em>Satisfactory</em>.</li>
+            </ul>
+            <div class="guide-tip-box">
+              <span class="guide-tip-icon" data-lucide="external-link" data-size="14"></span>
+              <div>
+                <strong>1-Click Efficiency:</strong>
+                <span>Click the SAFER link in the table next to any USDOT to open the official company snapshot in a single click.</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 7: High-Cadence Morning Routine -->
+          <article class="guide-card" data-category="workflow">
+            <div class="guide-card-header">
+              <span class="guide-tag amber">DISPATCH WORKFLOW</span>
+              <div class="guide-card-icon amber">
+                <span data-lucide="zap" data-size="20"></span>
+              </div>
+            </div>
+            <h3>High-Cadence Morning Outreach Routine</h3>
+            <p>Top dispatch agencies maintain a disciplined 3-step morning workflow to connect with carriers before their competition wakes up:</p>
+            <ol class="guide-ordered-steps">
+              <li><strong>1. Ingest Daily PDF:</strong> Drop the newly published daily FMCSA bulletin into the Upload tab (takes ~15 seconds).</li>
+              <li><strong>2. State Filter:</strong> Click your priority dispatch states (e.g. TX, CA, GA, IL) in the state chips bar to filter nearby targets.</li>
+              <li><strong>3. Dial Owner-Operators:</strong> Use 1-Click Call or Phone Copy to pitch new carriers directly while reviewing their SAFER snapshot.</li>
+            </ol>
+            <div class="guide-tip-box">
+              <span class="guide-tip-icon" data-lucide="clock" data-size="14"></span>
+              <div>
+                <strong>Speed Advantage:</strong>
+                <span>Calling within the first 2 hours of publication yields a 3x higher conversation rate than dialing stale lists.</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 8: Multi-Register Filing Intelligence -->
+          <article class="guide-card" data-category="workflow">
+            <div class="guide-card-header">
+              <span class="guide-tag emerald">LEAD INTEL</span>
+              <div class="guide-card-icon emerald">
+                <span data-lucide="repeat" data-size="20"></span>
+              </div>
+            </div>
+            <h3>What the "2x" / "3x" Occurrence Badges Mean</h3>
+            <p>When an applicant files in multiple daily registers (reapplication, authority scope change, or corrected filing), R2D detects the duplicate USDOT and flags it with an occurrence badge (e.g. <code>2x Filed</code>). R2D presents their latest filed contact details while retaining full source records in their dossier.</p>
+            <div class="guide-tip-box">
+              <span class="guide-tip-icon" data-lucide="sparkles" data-size="14"></span>
+              <div>
+                <strong>High Intent Signal:</strong>
+                <span>Carriers with 2+ filings are actively working through regulatory requirements and are exceptionally eager to start hauling freight.</span>
+              </div>
+            </div>
+          </article>
+
+          <!-- Card 9: Tactical Speed Keys -->
+          <article class="guide-card" data-category="workflow">
+            <div class="guide-card-header">
+              <span class="guide-tag indigo">POWER USER SPEED KEYS</span>
+              <div class="guide-card-icon indigo">
+                <span data-lucide="keyboard" data-size="20"></span>
+              </div>
+            </div>
+            <h3>Tactical Keyboard Shortcuts</h3>
+            <p>Accelerate your dispatch workflow and navigation speed with built-in hotkeys designed for keyboard-first efficiency:</p>
+            <div class="guide-hotkeys-grid">
+              <div class="guide-hotkey-item"><kbd class="kbd-key">/</kbd> <span>Focus & highlight search</span></div>
+              <div class="guide-hotkey-item"><kbd class="kbd-key">1</kbd> <span>Relevant Prospects</span></div>
+              <div class="guide-hotkey-item"><kbd class="kbd-key">2</kbd> <span>Manual Review tab</span></div>
+              <div class="guide-hotkey-item"><kbd class="kbd-key">3</kbd> <span>Excluded Group</span></div>
+              <div class="guide-hotkey-item"><kbd class="kbd-key">4</kbd> <span>All Carrier Records</span></div>
+              <div class="guide-hotkey-item"><kbd class="kbd-key">J</kbd> / <kbd class="kbd-key">K</kbd> <span>Next / Prev page</span></div>
+              <div class="guide-hotkey-item"><kbd class="kbd-key">Esc</kbd> <span>Close modal / Clear search</span></div>
+              <div class="guide-hotkey-item"><kbd class="kbd-key">?</kbd> <span>Open shortcuts field manual</span></div>
+            </div>
+            <div class="guide-tip-box">
+              <span class="guide-tip-icon" data-lucide="sparkles" data-size="14"></span>
+              <div>
+                <strong>Pro Tip:</strong>
+                <span>Press <kbd class="kbd-key">?</kbd> anytime to open the interactive shortcuts field manual.</span>
+              </div>
+            </div>
+          </article>
+        </div>
       </div>
     </section>
   </main>

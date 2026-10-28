@@ -26,6 +26,7 @@ ORDERED_MODULES = [
     "components/CarrierDossier.js",
     "components/BatchImporter.js",
     "components/ArchiveManager.js",
+    "components/Guide.js",
     "components/ShortcutsModal.js",
     "main.js"
 ]

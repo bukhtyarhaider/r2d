@@ -246,7 +246,7 @@ export class FilterBarComponent {
     // 3. Visible count
     if (this.visibleBadge) {
       const count = state.filteredProspects?.length || 0;
-      this.visibleBadge.textContent = `${format(count)} matching`;
+      this.visibleBadge.textContent = `${format(count)} ${count === 1 ? 'carrier' : 'carriers'} matching`;
     }
 
     // 4. Populate category options if empty
@@ -265,16 +265,16 @@ export class FilterBarComponent {
     const selCount = state.selectedDots.size;
     if (this.selectionCount) {
       this.selectionCount.textContent = selCount === 0
-        ? 'No records selected'
+        ? 'No carriers selected'
         : `${selCount.toLocaleString()} carrier${selCount === 1 ? '' : 's'} selected`;
     }
 
     if (this.selectionHint) {
       this.selectionHint.textContent = selCount === 0
-        ? 'Select individual records or check header box for this page.'
+        ? 'Check individual carrier boxes or the header checkbox to select this page.'
         : state.allMatchingSelected
           ? `All ${selCount.toLocaleString()} carriers matching current filters are selected.`
-          : 'Selection active. Use action buttons to bulk process.';
+          : `${selCount.toLocaleString()} selected. Use action buttons to bulk process or export.`;
     }
 
     if (this.selectMatchingBtn) {
