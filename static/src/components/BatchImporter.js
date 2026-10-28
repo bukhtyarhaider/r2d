@@ -19,13 +19,29 @@ export class BatchImporterComponent {
 
     this.progressArea = document.getElementById('progress-area');
     this.progressBar = document.getElementById('progress');
+    this.progressFill = document.getElementById('progress-fill');
+    this.progressPct = document.getElementById('progress-pct');
     this.progressText = document.getElementById('progress-text');
     this.progressHealth = document.getElementById('progress-health');
     this.feedback = document.getElementById('feedback');
 
+    this.fileQueueBar = document.getElementById('file-queue-bar');
+    this.queueCount = document.getElementById('queue-count');
+    this.queueSize = document.getElementById('queue-size');
+    this.clearQueueBtn = document.getElementById('clear-queue-btn');
+
     this.receiptCard = document.getElementById('import-receipt');
+    this.receiptAdded = document.getElementById('receipt-added');
+    this.receiptSkipped = document.getElementById('receipt-skipped');
+    this.receiptDocs = document.getElementById('receipt-docs');
+    this.receiptViewBtn = document.getElementById('receipt-view-prospects');
     this.importSummary = document.getElementById('import-summary');
     this.importFilesList = document.getElementById('import-files');
+
+    this.stageUpload = document.getElementById('stage-upload');
+    this.stageParse = document.getElementById('stage-parse');
+    this.stageDedup = document.getElementById('stage-dedup');
+    this.stageCommit = document.getElementById('stage-commit');
 
     this.selectedFiles = [];
     this.pollingTimer = null;
@@ -61,6 +77,19 @@ export class BatchImporterComponent {
       });
     }
 
+    if (this.clearQueueBtn) {
+      this.clearQueueBtn.addEventListener('click', () => {
+        this.selectedFiles = [];
+        this.renderFileList();
+      });
+    }
+
+    if (this.receiptViewBtn) {
+      this.receiptViewBtn.addEventListener('click', () => {
+        this.store.setState({ activeTab: 'prospects' }, 'tabChange');
+      });
+    }
+
     if (this.extractBtn) {
       this.extractBtn.addEventListener('click', () => this.startExtraction());
     }
@@ -92,10 +121,23 @@ export class BatchImporterComponent {
 
     if (this.selectedFiles.length === 0) {
       if (this.extractBtn) this.extractBtn.disabled = true;
+      if (this.fileQueueBar) this.fileQueueBar.hidden = true;
       return;
     }
 
     if (this.extractBtn) this.extractBtn.disabled = false;
+    if (this.fileQueueBar) this.fileQueueBar.hidden = false;
+
+    // Calculate total size
+    const totalBytes = this.selectedFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+    const totalMb = (totalBytes / (1024 * 1024)).toFixed(1);
+
+    if (this.queueCount) {
+      this.queueCount.textContent = `${this.selectedFiles.length} file${this.selectedFiles.length === 1 ? '' : 's'} queued`;
+    }
+    if (this.queueSize) {
+      this.queueSize.textContent = `${totalMb} MB total`;
+    }
 
     this.selectedFiles.forEach((file, idx) => {
       const li = document.createElement('li');
@@ -107,8 +149,9 @@ export class BatchImporterComponent {
           <span class="file-item-icon">${renderIcon('file-text', 14)}</span>
           <span class="file-item-name">${file.name}</span>
           <span class="file-item-size">${sizeMb} MB</span>
+          <span class="file-item-status">Ready</span>
         </div>
-        <button type="button" class="file-item-remove" aria-label="Remove file">
+        <button type="button" class="file-item-remove" aria-label="Remove file" title="Remove ${file.name}">
           ${renderIcon('x', 13)}
         </button>
       `;
@@ -121,19 +164,36 @@ export class BatchImporterComponent {
     });
   }
 
+  updateProgressStages(pct) {
+    if (this.progressBar) this.progressBar.value = pct;
+    if (this.progressFill) this.progressFill.style.width = `${pct}%`;
+    if (this.progressPct) this.progressPct.textContent = `${pct}%`;
+
+    const setStage = (el, active, done) => {
+      if (!el) return;
+      el.classList.toggle('active', active);
+      el.classList.toggle('done', done);
+    };
+
+    setStage(this.stageUpload, pct < 25, pct >= 25);
+    setStage(this.stageParse, pct >= 25 && pct < 75, pct >= 75);
+    setStage(this.stageDedup, pct >= 75 && pct < 95, pct >= 95);
+    setStage(this.stageCommit, pct >= 95, pct >= 100);
+  }
+
   async startExtraction() {
     if (!this.selectedFiles.length) return;
 
     this.extractBtn.disabled = true;
     if (this.cancelBtn) this.cancelBtn.hidden = false;
     if (this.progressArea) this.progressArea.hidden = false;
-    if (this.progressBar) this.progressBar.value = 5;
-    if (this.progressText) this.progressText.textContent = 'Uploading register PDFs to local engine…';
+    this.updateProgressStages(5);
+    if (this.progressText) this.progressText.textContent = 'Buffering register PDFs in local memory…';
 
     try {
       const res = await api.uploadBatch(this.selectedFiles, (loaded, total) => {
-        const pct = Math.round((loaded / total) * 50);
-        if (this.progressBar) this.progressBar.value = Math.max(5, pct);
+        const pct = Math.round((loaded / total) * 30);
+        this.updateProgressStages(Math.max(5, pct));
       });
 
       this.store.setState({ activeJobId: res.id });
@@ -157,13 +217,13 @@ export class BatchImporterComponent {
         const totalFiles = job.file_count || this.selectedFiles.length || 1;
 
         const filePct = (page / pages);
-        const overall = Math.round((((fileIdx - 1) + filePct) / totalFiles) * 100);
+        const overall = Math.round(30 + (((fileIdx - 1) + filePct) / totalFiles) * 65);
 
-        if (this.progressBar) this.progressBar.value = Math.min(95, overall);
-        if (this.progressText) this.progressText.textContent = job.message || `Processing register ${fileIdx} of ${totalFiles}…`;
-        if (this.progressHealth) this.progressHealth.textContent = `Elapsed: ${job.elapsed_seconds || 0}s`;
+        this.updateProgressStages(Math.min(95, overall));
+        if (this.progressText) this.progressText.textContent = job.message || `Parsing register ${fileIdx} of ${totalFiles} (page ${page}/${pages})…`;
+        if (this.progressHealth) this.progressHealth.textContent = `Elapsed: ${job.elapsed_seconds || 0}s · Local SQLite Engine Active`;
 
-        this.pollingTimer = setTimeout(() => this.pollJob(jobId), 400);
+        this.pollingTimer = setTimeout(() => this.pollJob(jobId), 350);
       } else if (job.status === 'complete') {
         this.onExtractionComplete(job);
       } else if (job.status === 'cancelled') {
@@ -189,7 +249,7 @@ export class BatchImporterComponent {
   }
 
   onExtractionComplete(job) {
-    if (this.progressBar) this.progressBar.value = 100;
+    this.updateProgressStages(100);
     if (this.progressText) this.progressText.textContent = 'Extraction complete! Records saved to local database.';
     if (this.cancelBtn) this.cancelBtn.hidden = true;
     if (this.extractBtn) this.extractBtn.disabled = false;
@@ -202,13 +262,27 @@ export class BatchImporterComponent {
 
     // Refresh history
     api.fetchHistory().then(data => {
+      const res = data.result || {};
+      const leads = res.leads || [];
+
+      // Discover unique categories
+      const catSet = new Set(res.categories || []);
+      for (const lead of leads) {
+        if (Array.isArray(lead.categories)) {
+          for (const c of lead.categories) {
+            if (c && typeof c === 'string' && c.trim()) catSet.add(c.trim());
+          }
+        }
+      }
+      const uniqueCategories = Array.from(catSet).sort((a, b) => a.localeCompare(b));
+
       this.store.setState({
-        history: data.result,
-        prospects: data.result.leads || [],
-        categories: data.result.categories || [],
-        registers: data.result.documents || [],
-        trash: data.result.trash || [],
-        summary: data.result.summary || {}
+        history: res,
+        prospects: leads,
+        categories: uniqueCategories,
+        registers: res.documents || [],
+        trash: res.trash || [],
+        summary: res.summary || {}
       }, 'historyLoad');
       this.store.computeFilteredProspects();
     });
@@ -236,9 +310,14 @@ export class BatchImporterComponent {
     const imported = job.imported || {};
     const added = imported.added || 0;
     const skipped = imported.skipped || 0;
+    const docs = imported.files?.length || 0;
+
+    if (this.receiptAdded) this.receiptAdded.textContent = `+${added.toLocaleString()}`;
+    if (this.receiptSkipped) this.receiptSkipped.textContent = skipped.toLocaleString();
+    if (this.receiptDocs) this.receiptDocs.textContent = docs.toLocaleString();
 
     if (this.importSummary) {
-      this.importSummary.textContent = `Batch Result: ${added.toLocaleString()} new carrier${added === 1 ? '' : 's'} added · ${skipped.toLocaleString()} existing duplicates retained.`;
+      this.importSummary.textContent = `${added.toLocaleString()} new carrier prospect${added === 1 ? '' : 's'} imported. ${skipped.toLocaleString()} duplicate filings merged.`;
     }
 
     if (this.importFilesList && imported.files) {

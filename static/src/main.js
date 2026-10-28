@@ -128,11 +128,24 @@ export class App {
         }
       }
 
+      // Discover and sort all unique authority categories across all leads
+      const categorySet = new Set(res.categories || []);
+      for (const lead of leads) {
+        if (Array.isArray(lead.categories)) {
+          for (const c of lead.categories) {
+            if (c && typeof c === 'string' && c.trim()) {
+              categorySet.add(c.trim());
+            }
+          }
+        }
+      }
+      const uniqueCategories = Array.from(categorySet).sort((a, b) => a.localeCompare(b));
+
       this.store.setState({
         history: res,
         revision: data.revision,
         prospects: leads,
-        categories: res.categories || [],
+        categories: uniqueCategories,
         registers: res.documents || [],
         trash: res.trash || [],
         summary: res.summary || {}

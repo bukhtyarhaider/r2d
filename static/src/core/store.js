@@ -160,9 +160,11 @@ export class Store {
         if (dec !== 'excluded') return false;
       }
 
-      // 2. Category filter
-      if (category && (!Array.isArray(lead.categories) || !lead.categories.includes(category))) {
-        return false;
+      // 2. Category / Authority Scope filter
+      if (category) {
+        if (!Array.isArray(lead.categories)) return false;
+        const target = category.trim().toLowerCase();
+        if (!lead.categories.some(c => (c || '').trim().toLowerCase() === target)) return false;
       }
 
       // 3. Country filter

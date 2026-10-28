@@ -154,6 +154,27 @@ export class FilterBarComponent {
     this.store.subscribe((state, event) => {
       this.syncUI(state);
     });
+
+    // Setup dynamic sticky offset sync
+    this.syncFilterDeckHeight();
+    const filterCard = document.querySelector('.prospects-filter-card');
+    if (filterCard && window.ResizeObserver) {
+      const ro = new ResizeObserver(() => {
+        this.syncFilterDeckHeight();
+      });
+      ro.observe(filterCard);
+    }
+    window.addEventListener('resize', () => this.syncFilterDeckHeight());
+  }
+
+  syncFilterDeckHeight() {
+    const card = document.querySelector('.prospects-filter-card');
+    if (card) {
+      const h = Math.round(card.getBoundingClientRect().height);
+      if (h > 0) {
+        document.documentElement.style.setProperty('--filter-deck-height', `${h}px`);
+      }
+    }
   }
 
   renderStateChips() {
@@ -200,6 +221,8 @@ export class FilterBarComponent {
         this.renderStateChips();
       });
     });
+
+    this.syncFilterDeckHeight();
   }
 
   clearAllFilters() {
@@ -249,20 +272,34 @@ export class FilterBarComponent {
       this.visibleBadge.textContent = `${format(count)} ${count === 1 ? 'carrier' : 'carriers'} matching`;
     }
 
-    // 4. Populate category options if empty
-    if (this.categorySelect && this.categorySelect.children.length <= 1 && state.categories?.length) {
-      const frag = document.createDocumentFragment();
-      for (const cat of state.categories) {
-        const opt = document.createElement('option');
-        opt.value = cat;
-        opt.textContent = cat;
-        frag.appendChild(opt);
+    // 4. Populate category / authority scope options
+    if (this.categorySelect && state.categories?.length) {
+      const currentVal = this.store.getState().category || this.categorySelect.value;
+      const existingOptions = Array.from(this.categorySelect.options).slice(1).map(o => o.value);
+      const isUpToDate = existingOptions.length === state.categories.length &&
+        state.categories.every((cat, i) => existingOptions[i] === cat);
+      if (!isUpToDate) {
+        this.categorySelect.innerHTML = '<option value="">All authority scopes</option>';
+        const frag = document.createDocumentFragment();
+        for (const cat of state.categories) {
+          const opt = document.createElement('option');
+          opt.value = cat;
+          opt.textContent = cat;
+          if (cat === currentVal) opt.selected = true;
+          frag.appendChild(opt);
+        }
+        this.categorySelect.appendChild(frag);
+        if (currentVal) this.categorySelect.value = currentVal;
       }
-      this.categorySelect.appendChild(frag);
     }
 
     // 5. Selection bar update
     const selCount = state.selectedDots.size;
+    if (this.selectionBar) {
+      this.selectionBar.hidden = selCount === 0;
+      this.selectionBar.style.display = selCount === 0 ? 'none' : 'flex';
+    }
+
     if (this.selectionCount) {
       this.selectionCount.textContent = selCount === 0
         ? 'No carriers selected'
@@ -289,6 +326,8 @@ export class FilterBarComponent {
     if (this.deleteSelectedBtn) {
       this.deleteSelectedBtn.disabled = selCount === 0;
     }
+
+    this.syncFilterDeckHeight();
   }
 
   openDeleteDialog(targets) {

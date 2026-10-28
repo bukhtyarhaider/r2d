@@ -218,23 +218,28 @@ export class CarrierDossierComponent {
           </div>
         </div>
 
-        <!-- Section: Raw Register Evidence Snippet -->
-        ${carrier.evidence ? `
+        <!-- Section: Register Evidence & Filings -->
+        ${carrier.evidence && (Array.isArray(carrier.evidence) ? carrier.evidence.length > 0 : true) ? `
           <div class="dossier-card">
             <div class="dossier-card-title">
               ${renderIcon('file-text', 14)}
-              <span>Raw Register PDF Extract</span>
+              <span>Filing Source Evidence (${Array.isArray(carrier.evidence) ? carrier.evidence.length : 1})</span>
             </div>
-            <pre class="dossier-evidence-raw">${escapeHtml(carrier.evidence)}</pre>
+            <div class="evidence-items-list">
+              ${renderEvidenceList(carrier.evidence)}
+            </div>
           </div>
         ` : ''}
       </div>
     `;
 
     // Bind close
-    this.drawer.querySelector('.dossier-close-btn').addEventListener('click', () => {
-      this.store.closeDossier();
-    });
+    const closeBtn = this.drawer.querySelector('.dossier-close-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        this.store.closeDossier();
+      });
+    }
 
     // Bind copy buttons
     this.drawer.querySelectorAll('[data-copy-val]').forEach(btn => {
@@ -253,10 +258,48 @@ export class CarrierDossierComponent {
   }
 }
 
-function escapeHtml(str) {
-  if (!str) return '';
+function renderEvidenceList(evidence) {
+  if (!evidence) return '';
+  const items = Array.isArray(evidence) ? evidence : [evidence];
+  if (!items.length) return '';
+
+  return items.map((ev, idx) => {
+    if (typeof ev !== 'object' || ev === null) {
+      return `<pre class="dossier-evidence-raw">${escapeHtml(ev)}</pre>`;
+    }
+    const source = escapeHtml(ev.source || 'Register PDF');
+    const pages = Array.isArray(ev.pages) ? ev.pages.join(', ') : (ev.pages || '—');
+    const cat = escapeHtml(ev.category || '—');
+    const filing = escapeHtml(ev.filing_date || '—');
+
+    return `
+      <div class="evidence-item-card">
+        <div class="evidence-item-header">
+          <span class="evidence-source-tag">${renderIcon('file-text', 12)} ${source}</span>
+          <span class="evidence-page-tag">Page ${pages}</span>
+        </div>
+        <div class="evidence-item-meta">
+          <div class="evidence-field">
+            <span class="evidence-label">Filing Date:</span>
+            <span class="evidence-val monospace">${filing}</span>
+          </div>
+          <div class="evidence-field">
+            <span class="evidence-label">Authority:</span>
+            <span class="evidence-val">${cat}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function escapeHtml(val) {
+  if (val === null || val === undefined) return '';
+  const str = typeof val === 'string' ? val : (typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val));
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }

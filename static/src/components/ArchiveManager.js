@@ -31,6 +31,16 @@ export class ArchiveManagerComponent {
     this.trashListContainer = document.getElementById('trash-list');
     this.trashSearchInput = document.getElementById('trash-search');
     this.trashFeedback = document.getElementById('trash-feedback');
+    this.trashMetricDots = document.getElementById('trash-metric-dots');
+    this.trashMetricDocs = document.getElementById('trash-metric-docs');
+    this.trashRestoreAllBtn = document.getElementById('trash-restore-all-btn');
+    this.trashRefreshBtn = document.getElementById('trash-refresh-btn');
+    this.trashFilterBtns = document.querySelectorAll('.trash-filter-btn');
+    this.trashTabCountAll = document.getElementById('trash-tab-count-all');
+    this.trashTabCountDots = document.getElementById('trash-tab-count-dots');
+    this.trashTabCountDocs = document.getElementById('trash-tab-count-docs');
+    this.trashSearchQuery = '';
+    this.trashFilterType = 'all';
 
     // Deletion Modal
     this.deleteDialog = document.getElementById('delete-dialog');
@@ -44,6 +54,11 @@ export class ArchiveManagerComponent {
     this.undoBtn = document.getElementById('undo-delete');
     this.dismissUndoBtn = document.getElementById('dismiss-undo');
     this.lastDeletedId = null;
+
+    if (this.undoNotice) {
+      this.undoNotice.hidden = true;
+      this.undoNotice.style.display = 'none';
+    }
 
     this.registerSearchQuery = '';
     this.registerSortBy = 'newest';
@@ -115,14 +130,20 @@ export class ArchiveManagerComponent {
       this.undoBtn.addEventListener('click', () => {
         if (this.lastDeletedId) {
           this.restoreItem(this.lastDeletedId);
-          if (this.undoNotice) this.undoNotice.hidden = true;
+          if (this.undoNotice) {
+            this.undoNotice.hidden = true;
+            this.undoNotice.style.display = 'none';
+          }
         }
       });
     }
 
     if (this.dismissUndoBtn) {
       this.dismissUndoBtn.addEventListener('click', () => {
-        if (this.undoNotice) this.undoNotice.hidden = true;
+        if (this.undoNotice) {
+          this.undoNotice.hidden = true;
+          this.undoNotice.style.display = 'none';
+        }
       });
     }
 
@@ -173,8 +194,36 @@ export class ArchiveManagerComponent {
     // Trash search
     if (this.trashSearchInput) {
       this.trashSearchInput.addEventListener('input', (e) => {
-        this.store.setState({ trashSearch: e.target.value }, 'trashSearchChange');
+        this.trashSearchQuery = (e.target.value || '').trim().toLowerCase();
         this.renderTrash(this.store.getState());
+      });
+    }
+
+    // Trash filter pills
+    this.trashFilterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const filter = btn.getAttribute('data-trash-filter') || 'all';
+        this.trashFilterType = filter;
+        this.trashFilterBtns.forEach(b => {
+          const match = b.getAttribute('data-trash-filter') === filter;
+          b.classList.toggle('active', match);
+        });
+        this.renderTrash(this.store.getState());
+      });
+    });
+
+    // Trash Restore All button
+    if (this.trashRestoreAllBtn) {
+      this.trashRestoreAllBtn.addEventListener('click', () => {
+        this.restoreAllTrash();
+      });
+    }
+
+    // Trash Refresh button
+    if (this.trashRefreshBtn) {
+      this.trashRefreshBtn.addEventListener('click', () => {
+        this.renderTrash(this.store.getState());
+        Toast.info('Trash view refreshed');
       });
     }
 
@@ -183,6 +232,57 @@ export class ArchiveManagerComponent {
       this.renderRegisters(state);
       this.renderTrash(state);
     });
+  }
+
+  async restoreAllTrash() {
+    const trash = this.store.getState().trash || [];
+    if (!trash.length) {
+      Toast.info('Trash is already empty.');
+      return;
+    }
+    if (!confirm(`Restore all ${trash.length.toLocaleString()} deleted item batch${trash.length === 1 ? '' : 'es'} back to active records?`)) {
+      return;
+    }
+
+    let successCount = 0;
+    for (const item of trash) {
+      try {
+        await api.restoreRecord(item.id);
+        successCount++;
+      } catch (err) {
+        console.error('Failed to restore item:', item.id, err);
+      }
+    }
+
+    try {
+      const data = await api.fetchHistory();
+      const res = data.result || {};
+      const leads = res.leads || [];
+
+      // Discover and sort all unique authority categories
+      const catSet = new Set(res.categories || []);
+      for (const lead of leads) {
+        if (Array.isArray(lead.categories)) {
+          for (const c of lead.categories) {
+            if (c && typeof c === 'string' && c.trim()) catSet.add(c.trim());
+          }
+        }
+      }
+      const uniqueCategories = Array.from(catSet).sort((a, b) => a.localeCompare(b));
+
+      this.store.setState({
+        history: res,
+        prospects: leads,
+        categories: uniqueCategories,
+        registers: res.documents || [],
+        trash: res.trash || [],
+        summary: res.summary || {}
+      }, 'historyLoad');
+      this.store.computeFilteredProspects();
+      Toast.success(`Restored all ${successCount.toLocaleString()} deleted batches successfully!`);
+    } catch (err) {
+      Toast.error('Failed to reload database after restore');
+    }
   }
 
   filterProspectsByRegister(query) {
@@ -372,48 +472,135 @@ export class ArchiveManagerComponent {
   renderTrash(state) {
     if (!this.trashListContainer) return;
     const trash = state.trash || [];
-    const query = (state.trashSearch || '').trim().toLowerCase();
 
-    const filtered = query ? trash.filter(item => {
-      const hay = `${item.title || item.label || ''} ${item.kind || ''} ${(item.targets || []).join(' ')}`.toLowerCase();
-      return hay.includes(query);
-    }) : trash;
+    // Calculate HUD Metrics
+    let deletedDotsCount = 0;
+    let deletedDocsCount = 0;
+    for (const item of trash) {
+      const count = item.targets?.length || item.count || 1;
+      if (item.kind === 'dots') deletedDotsCount += count;
+      else if (item.kind === 'documents') deletedDocsCount += count;
+    }
+
+    if (this.trashMetricDots) this.trashMetricDots.textContent = deletedDotsCount.toLocaleString();
+    if (this.trashMetricDocs) this.trashMetricDocs.textContent = deletedDocsCount.toLocaleString();
+
+    // Tab Counts
+    if (this.trashTabCountAll) this.trashTabCountAll.textContent = trash.length.toLocaleString();
+    if (this.trashTabCountDots) this.trashTabCountDots.textContent = trash.filter(t => t.kind === 'dots').length.toLocaleString();
+    if (this.trashTabCountDocs) this.trashTabCountDocs.textContent = trash.filter(t => t.kind === 'documents').length.toLocaleString();
+
+    // Filter by type
+    let filtered = trash;
+    if (this.trashFilterType === 'dots') {
+      filtered = filtered.filter(t => t.kind === 'dots');
+    } else if (this.trashFilterType === 'documents') {
+      filtered = filtered.filter(t => t.kind === 'documents');
+    }
+
+    // Filter by search query
+    const query = this.trashSearchQuery || '';
+    if (query) {
+      filtered = filtered.filter(item => {
+        const hay = `${item.title || item.label || ''} ${item.kind || ''} ${(item.targets || []).join(' ')}`.toLowerCase();
+        return hay.includes(query);
+      });
+    }
 
     if (filtered.length === 0) {
+      const isSearchActive = Boolean(query || this.trashFilterType !== 'all');
       this.trashListContainer.innerHTML = `
         <div class="empty-trash-box">
           <div class="empty-icon-circle">
-            ${renderIcon('trash-2', 32)}
+            ${renderIcon(isSearchActive ? 'filter-x' : 'shield-check', 36)}
           </div>
-          <h3>${trash.length === 0 ? 'Trash is Empty' : 'No Deleted Items Match Search'}</h3>
-          <p>${trash.length === 0 ? 'No deleted carriers or registers in local storage. All records are currently active.' : 'Try searching with a different term.'}</p>
+          <h3>${isSearchActive ? 'No Deleted Items Match Active Filters' : 'Trash is Clean & Empty'}</h3>
+          <p>${isSearchActive 
+            ? 'Try resetting your search query or switching to All Trash to view more deletions.' 
+            : 'All deduplicated FMCSA carrier prospects and daily register PDFs are currently active in your local database.'}</p>
+          <div class="empty-trash-actions">
+            ${isSearchActive ? `
+              <button type="button" class="btn btn-secondary btn-sm" id="reset-trash-filters-btn">
+                <span>Reset Filters</span>
+              </button>
+            ` : `
+              <button type="button" class="btn btn-primary btn-sm" id="empty-trash-go-prospects">
+                <span>Explore Prospects</span>
+                ${renderIcon('arrow-right', 13)}
+              </button>
+            `}
+          </div>
         </div>
       `;
+
+      const resetBtn = document.getElementById('reset-trash-filters-btn');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          this.trashSearchQuery = '';
+          if (this.trashSearchInput) this.trashSearchInput.value = '';
+          this.trashFilterType = 'all';
+          this.trashFilterBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-trash-filter') === 'all'));
+          this.renderTrash(this.store.getState());
+        });
+      }
+
+      const goProspectsBtn = document.getElementById('empty-trash-go-prospects');
+      if (goProspectsBtn) {
+        goProspectsBtn.addEventListener('click', () => {
+          this.store.setState({ activeTab: 'prospects' }, 'tabChange');
+        });
+      }
       return;
     }
 
     this.trashListContainer.innerHTML = filtered.map(item => {
       const id = item.id;
-      const title = item.title || item.label || `Deleted ${item.kind || 'items'}`;
-      const time = item.deleted_at ? new Date(item.deleted_at * 1000).toLocaleString() : 'Recently';
+      const title = this.escapeHTML(item.title || item.label || `Deleted ${item.kind || 'items'}`);
+      const time = item.deleted_at ? new Date(item.deleted_at * 1000).toLocaleString(undefined, {
+        month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      }) : 'Recently';
       const count = item.targets?.length || item.count || 0;
       const isDoc = item.kind === 'documents';
+      const targets = Array.isArray(item.targets) ? item.targets : [];
 
       return `
-        <div class="trash-item">
-          <div class="trash-item-left">
-            <span class="trash-item-icon ${isDoc ? 'doc' : 'carrier'}">
-              ${renderIcon(isDoc ? 'folder-archive' : 'truck', 16)}
-            </span>
-            <div class="trash-item-details">
-              <strong>${title}</strong>
-              <span class="trash-item-meta">${count.toLocaleString()} ${item.kind === 'dots' ? 'carriers' : 'registers'} · Deleted ${time}</span>
+        <div class="trash-card ${isDoc ? 'trash-doc' : 'trash-lead'}">
+          <div class="trash-card-left">
+            <div class="trash-card-icon-box ${isDoc ? 'doc' : 'carrier'}">
+              ${renderIcon(isDoc ? 'folder-archive' : (count > 1 ? 'layers' : 'truck'), 18)}
+            </div>
+            <div class="trash-card-details">
+              <div class="trash-card-title-row">
+                <span class="trash-card-badge ${isDoc ? 'badge-doc' : 'badge-lead'}">
+                  ${isDoc ? 'REGISTER ARCHIVE' : (count > 1 ? 'BATCH CARRIERS' : 'CARRIER PROSPECT')}
+                </span>
+                <strong class="trash-card-title">${title}</strong>
+              </div>
+              <div class="trash-card-meta-row">
+                <span class="trash-card-meta-item">
+                  ${renderIcon('clock', 12)}
+                  <span>Deleted ${time}</span>
+                </span>
+                <span class="trash-card-meta-dot">·</span>
+                <span class="trash-card-meta-item">
+                  ${renderIcon('hash', 12)}
+                  <span>${count.toLocaleString()} ${isDoc ? (count === 1 ? 'register' : 'registers') : (count === 1 ? 'carrier' : 'carriers')} affected</span>
+                </span>
+              </div>
+              ${targets.length > 1 && !isDoc ? `
+                <div class="trash-targets-preview">
+                  ${targets.slice(0, 6).map(t => `<span class="target-tag monospace">USDOT ${t}</span>`).join('')}
+                  ${targets.length > 6 ? `<span class="target-more">+${(targets.length - 6).toLocaleString()} more</span>` : ''}
+                </div>
+              ` : ''}
             </div>
           </div>
-          <button type="button" class="btn btn-secondary btn-sm restore-item-btn" data-restore-id="${id}">
-            ${renderIcon('rotate-ccw', 13)}
-            <span>Restore</span>
-          </button>
+          <div class="trash-card-actions">
+            <button type="button" class="btn btn-secondary btn-sm restore-item-btn" data-restore-id="${id}" title="Re-instate these records back to active database">
+              ${renderIcon('rotate-ccw', 13)}
+              <span>Restore Records</span>
+            </button>
+          </div>
         </div>
       `;
     }).join('');
@@ -483,21 +670,33 @@ export class ArchiveManagerComponent {
         if (this.undoNotice && this.undoMessage) {
           this.undoMessage.textContent = `Moved ${targets.length.toLocaleString()} ${kind === 'dots' ? 'carrier' : 'register'}${targets.length === 1 ? '' : 's'} to Trash.`;
           this.undoNotice.hidden = false;
+          this.undoNotice.style.display = 'flex';
         }
       }
 
       Toast.success(`Moved ${targets.length.toLocaleString()} ${kind === 'dots' ? 'carrier' : 'register'}${targets.length === 1 ? '' : 's'} to Trash.`);
+
+      // Discover and sort all unique authority categories
+      const catSet = new Set(res.result?.categories || []);
+      for (const lead of (res.result?.leads || [])) {
+        if (Array.isArray(lead.categories)) {
+          for (const c of lead.categories) {
+            if (c && typeof c === 'string' && c.trim()) catSet.add(c.trim());
+          }
+        }
+      }
+      const uniqueCategories = Array.from(catSet).sort((a, b) => a.localeCompare(b));
 
       // Clear selections & update store
       this.store.clearSelection();
       this.store.setState({
         selectedDocuments: new Set(),
         history: res.result,
-        prospects: res.result.leads || [],
-        categories: res.result.categories || [],
-        registers: res.result.documents || [],
-        trash: res.result.trash || [],
-        summary: res.result.summary || {}
+        prospects: res.result?.leads || [],
+        categories: uniqueCategories,
+        registers: res.result?.documents || [],
+        trash: res.result?.trash || [],
+        summary: res.result?.summary || {}
       }, 'historyLoad');
       this.store.computeFilteredProspects();
     } catch (err) {
@@ -515,15 +714,29 @@ export class ArchiveManagerComponent {
       const res = await api.restoreRecord(deletionId);
       Toast.success('Records restored successfully!');
 
-      if (this.undoNotice) this.undoNotice.hidden = true;
+      if (this.undoNotice) {
+        this.undoNotice.hidden = true;
+        this.undoNotice.style.display = 'none';
+      }
+
+      // Discover and sort all unique authority categories
+      const catSet = new Set(res.result?.categories || []);
+      for (const lead of (res.result?.leads || [])) {
+        if (Array.isArray(lead.categories)) {
+          for (const c of lead.categories) {
+            if (c && typeof c === 'string' && c.trim()) catSet.add(c.trim());
+          }
+        }
+      }
+      const uniqueCategories = Array.from(catSet).sort((a, b) => a.localeCompare(b));
 
       this.store.setState({
         history: res.result,
-        prospects: res.result.leads || [],
-        categories: res.result.categories || [],
-        registers: res.result.documents || [],
-        trash: res.result.trash || [],
-        summary: res.result.summary || {}
+        prospects: res.result?.leads || [],
+        categories: uniqueCategories,
+        registers: res.result?.documents || [],
+        trash: res.result?.trash || [],
+        summary: res.result?.summary || {}
       }, 'historyLoad');
       this.store.computeFilteredProspects();
     } catch (err) {

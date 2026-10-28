@@ -251,11 +251,12 @@ export class ProspectsTableComponent {
             <span class="date-val monospace" title="FMCSA Register filing date">${lead.filing_date || '—'}</span>
           </td>
 
-          <!-- Applied Categories -->
+          <!-- Authority Scope -->
           <td class="col-categories">
             <div class="cat-pill-wrap">
-              ${categories.slice(0, 2).map(c => `<span class="cat-pill" title="${c}">${truncate(c, 24)}</span>`).join('')}
-              ${categories.length > 2 ? `<span class="cat-pill-more">+${categories.length - 2}</span>` : ''}
+              ${categories.length > 0 
+                ? categories.map(c => `<span class="cat-pill" title="${c}">${c}</span>`).join('')
+                : '<span class="cat-pill cat-none">Not specified</span>'}
             </div>
           </td>
 

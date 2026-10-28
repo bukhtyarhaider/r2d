@@ -5,8 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="R2D - Register to Dot · FMCSA Dispatch Register Prospect Intelligence">
   <title>R2D · Register to Dot — FMCSA Dispatch Register Prospect Intelligence</title>
-  <link rel="stylesheet" href="/styles.css?v=5">
-  <script src="/app.js?v=5" defer></script>
+  <link rel="stylesheet" href="/styles.css?v=7">
+  <script src="/app.js?v=7" defer></script>
 </head>
 <body>
   <!-- Topbar Header with Brand, Navigation Tabs, and Controls -->
@@ -66,7 +66,6 @@
         </button>
         <div class="local-status-pill" title="Local loopback server running offline-ready">
           <span class="pulse-indicator"></span>
-          <span class="pulse-text">SQLITE · OFFLINE READY</span>
         </div>
         <span class="dev-badge">Dev: <strong>Bukhtyar Haider</strong></span>
         <button id="theme-toggle" class="theme-btn" type="button" aria-label="Toggle dark/light theme" title="Toggle theme">
@@ -154,9 +153,9 @@
           <div class="filter-controls">
             <div class="select-group">
               <span class="select-icon" data-lucide="sliders-horizontal" data-size="13"></span>
-              <label for="category">Authority Type</label>
+              <label for="category">Authority Scope</label>
               <select id="category">
-                <option value="">All authority types</option>
+                <option value="">All authority scopes</option>
               </select>
             </div>
 
@@ -180,48 +179,40 @@
 
           <div class="filter-meta">
             <span id="visible-count" class="visible-count-badge">0 matching</span>
+            <div class="export-buttons">
+              <button id="export-csv" class="btn btn-secondary btn-sm" title="Export matching carrier records as CSV spreadsheet">
+                <span data-lucide="download" data-size="13"></span>
+                <span>Export CSV</span>
+              </button>
+              <button id="export-dots" class="btn btn-secondary btn-sm" title="Export plain list of USDOT numbers for SAFER bulk query">
+                <span data-lucide="file-text" data-size="13"></span>
+                <span>DOT List</span>
+              </button>
+              <button id="export-audit" class="btn btn-ghost btn-sm" title="Export complete audit JSON with all source filing evidence">
+                <span data-lucide="file-code" data-size="13"></span>
+                <span>Audit JSON</span>
+              </button>
+            </div>
           </div>
         </div>
 
         <!-- State Quick Filter Chips -->
         <div id="state-chips-bar" class="state-chips-bar"></div>
-      </div>
 
-      <!-- Export Action Strip -->
-      <div class="export-bar">
-        <div class="export-scope-info">
-          <span class="export-scope-dot"></span>
-          <span id="export-scope">Exports apply to active filtered view</span>
-        </div>
-        <div class="export-buttons">
-          <button id="export-csv" class="btn btn-secondary btn-sm" title="Export matching carrier records as CSV spreadsheet">
-            <span data-lucide="download" data-size="14"></span>
-            <span>Export CSV</span>
-          </button>
-          <button id="export-dots" class="btn btn-secondary btn-sm" title="Export plain list of USDOT numbers for SAFER bulk query">
-            <span data-lucide="file-text" data-size="14"></span>
-            <span>Export DOT List (.txt)</span>
-          </button>
-          <button id="export-audit" class="btn btn-ghost btn-sm" title="Export complete audit JSON with all source filing evidence">
-            <span data-lucide="file-code" data-size="14"></span>
-            <span>Export Audit JSON</span>
-          </button>
-        </div>
-      </div>
-
-      <!-- Dynamic Batch Selection Bar -->
-      <div class="selection-bar" aria-label="Manage selected records">
-        <div class="selection-info">
-          <strong id="selection-count" role="status">No records selected</strong>
-          <span id="selection-hint">Select individual records or check header box for this page.</span>
-        </div>
-        <div class="selection-actions">
-          <button id="select-matching" class="btn btn-secondary btn-sm" disabled>Select all matching</button>
-          <button id="clear-selected" class="btn btn-ghost btn-sm" hidden>Clear selection</button>
-          <button id="delete-selected" class="btn btn-danger btn-sm" disabled>
-            <span data-lucide="trash-2" data-size="13"></span>
-            <span>Move to Trash</span>
-          </button>
+        <!-- Dynamic Batch Selection Bar (Appears when carriers selected) -->
+        <div class="selection-bar" aria-label="Manage selected records" hidden style="display: none;">
+          <div class="selection-info">
+            <strong id="selection-count" role="status">No records selected</strong>
+            <span id="selection-hint">Select individual records or check header box for this page.</span>
+          </div>
+          <div class="selection-actions">
+            <button id="select-matching" class="btn btn-secondary btn-sm" disabled>Select all matching</button>
+            <button id="clear-selected" class="btn btn-ghost btn-sm" hidden>Clear selection</button>
+            <button id="delete-selected" class="btn btn-danger btn-sm" disabled>
+              <span data-lucide="trash-2" data-size="13"></span>
+              <span>Move to Trash</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -262,7 +253,7 @@
               <th scope="col" class="col-company">Carrier Legal Name</th>
               <th scope="col" class="col-contact">Primary Contact & Phone</th>
               <th scope="col" class="col-date">Filing Date</th>
-              <th scope="col" class="col-categories">Applied Authority</th>
+              <th scope="col" class="col-categories">Authority Scope</th>
               <th scope="col" class="col-action">Actions</th>
             </tr>
           </thead>
@@ -288,45 +279,139 @@
 
     <!-- TAB 2: UPLOAD & EXTRACT WORKSPACE -->
     <section id="tab-upload" class="tab-panel" role="tabpanel" aria-label="Upload and Extract Registers">
+      <!-- Upload Workspace Header & Metrics HUD -->
+      <div class="upload-header-banner">
+        <div>
+          <p class="eyebrow">DETERMINISTIC FMCSA EXTRACTOR</p>
+          <h2>Upload & Extract Daily Register PDFs</h2>
+          <p class="subtitle">Extract high-intent carrier applicants from FMCSA Daily Operating Authority Application PDF registers. 100% local in-memory parsing with automatic USDOT deduplication.</p>
+        </div>
+      </div>
+
+      <div class="upload-metrics-grid">
+        <div class="up-metric-card">
+          <div class="up-metric-header">
+            <span class="up-metric-label">PARSER ARCHITECTURE</span>
+            <span class="up-metric-icon emerald"><span data-lucide="cpu" data-size="16"></span></span>
+          </div>
+          <strong class="up-metric-value">100% In-Memory</strong>
+          <span class="up-metric-hint">Zero cloud uploads · No third-party AI APIs</span>
+        </div>
+        <div class="up-metric-card">
+          <div class="up-metric-header">
+            <span class="up-metric-label">BATCH LIMIT</span>
+            <span class="up-metric-icon cyan"><span data-lucide="layers" data-size="16"></span></span>
+          </div>
+          <strong class="up-metric-value monospace">40 PDFs · 200MB</strong>
+          <span class="up-metric-hint">Max 25 MB per single register document</span>
+        </div>
+        <div class="up-metric-card">
+          <div class="up-metric-header">
+            <span class="up-metric-label">DEDUPLICATION</span>
+            <span class="up-metric-icon amber"><span data-lucide="shield-check" data-size="16"></span></span>
+          </div>
+          <strong class="up-metric-value">1 USDOT = 1 Lead</strong>
+          <span class="up-metric-hint">Newest filing contact takes precedence</span>
+        </div>
+        <div class="up-metric-card">
+          <div class="up-metric-header">
+            <span class="up-metric-label">SUPPORTED FORMAT</span>
+            <span class="up-metric-icon indigo"><span data-lucide="file-check" data-size="16"></span></span>
+          </div>
+          <strong class="up-metric-value">6-Column FMCSA</strong>
+          <span class="up-metric-hint">Daily Operating Authority Applications</span>
+        </div>
+      </div>
+
       <div class="upload-deck">
-        <!-- Upload Card -->
+        <!-- Left: Upload Card -->
         <div class="upload-card">
-          <div class="section-label">
-            <span class="step-num">1</span>
-            <div>
-              <h2>Add FMCSA Register PDFs</h2>
-              <p class="section-subtitle">Daily Operating Authority Applications registers</p>
+          <div class="upload-card-header">
+            <div class="section-label">
+              <span class="step-num">1</span>
+              <div>
+                <h2>Select Register PDFs</h2>
+                <p class="section-subtitle">Drop daily registers or select files from your computer</p>
+              </div>
             </div>
-            <span class="file-tag">PDF</span>
+            <span class="file-tag">PDF BATCH</span>
           </div>
 
           <label class="dropzone" id="dropzone" tabindex="0">
             <input id="files" type="file" accept=".pdf,application/pdf" multiple>
             <div class="upload-icon-circle">
-              <span data-lucide="upload-cloud" data-size="32"></span>
+              <span data-lucide="upload-cloud" data-size="34"></span>
             </div>
-            <strong class="dropzone-title">Drop register PDFs here</strong>
-            <span class="dropzone-subtitle">or <u class="browse-link">browse files</u> on your computer</span>
-            <span class="dropzone-constraints">Up to 40 files · 25 MB each · 200 MB batch limit</span>
+            <strong class="dropzone-title">Drop FMCSA Register PDFs here</strong>
+            <span class="dropzone-subtitle">or <u class="browse-link">browse files on your computer</u></span>
+            <div class="dropzone-pills">
+              <span class="dz-pill">.PDF only</span>
+              <span class="dz-pill">Up to 40 files</span>
+              <span class="dz-pill">Max 25 MB each</span>
+            </div>
           </label>
+
+          <!-- Selected Files Batch Queue Bar -->
+          <div id="file-queue-bar" class="file-queue-bar" hidden>
+            <div class="queue-meta">
+              <span data-lucide="layers" data-size="14"></span>
+              <strong id="queue-count">0 files queued</strong>
+              <span id="queue-size" class="queue-size">0 MB</span>
+            </div>
+            <button type="button" id="clear-queue-btn" class="btn btn-ghost btn-xs text-muted">
+              <span data-lucide="x" data-size="12"></span>
+              <span>Clear Queue</span>
+            </button>
+          </div>
 
           <ul id="file-list" class="file-list" aria-label="Selected files"></ul>
 
           <div class="upload-actions">
             <button class="btn btn-primary btn-lg" id="extract" disabled>
-              <span>Extract prospects</span>
-              <span data-lucide="arrow-up-right" data-size="16"></span>
+              <span data-lucide="play" data-size="15"></span>
+              <span>Extract Prospects</span>
+              <span data-lucide="arrow-up-right" data-size="15"></span>
             </button>
-            <button id="cancel" class="btn btn-ghost btn-danger" hidden>
-              <span data-lucide="x" data-size="14"></span>
-              <span>Cancel extraction</span>
+            <button id="cancel" class="btn btn-secondary btn-danger" hidden>
+              <span data-lucide="x-circle" data-size="14"></span>
+              <span>Cancel Extraction</span>
             </button>
           </div>
 
+          <!-- Multi-Stage Extraction HUD -->
           <div id="progress-area" class="progress-container" hidden>
-            <progress id="progress" max="100"></progress>
+            <div class="progress-hud-header">
+              <div class="progress-status-wrap">
+                <span class="progress-spinner"></span>
+                <strong id="progress-text" role="status" aria-live="polite">Parsing FMCSA registers…</strong>
+              </div>
+              <span id="progress-pct" class="progress-pct-badge">0%</span>
+            </div>
+
+            <div class="progress-bar-track">
+              <div id="progress-fill" class="progress-bar-fill" style="width: 0%;"></div>
+            </div>
+
+            <div class="progress-stages-stepper">
+              <div class="stage-step" id="stage-upload">
+                <span class="stage-dot"></span>
+                <span>Upload</span>
+              </div>
+              <div class="stage-step" id="stage-parse">
+                <span class="stage-dot"></span>
+                <span>6-Col Parse</span>
+              </div>
+              <div class="stage-step" id="stage-dedup">
+                <span class="stage-dot"></span>
+                <span>Deduplicate</span>
+              </div>
+              <div class="stage-step" id="stage-commit">
+                <span class="stage-dot"></span>
+                <span>SQLite Commit</span>
+              </div>
+            </div>
+
             <div class="progress-meta">
-              <p id="progress-text" class="small" role="status" aria-live="polite"></p>
               <p id="progress-health" class="small"></p>
             </div>
           </div>
@@ -335,45 +420,71 @@
 
           <div class="privacy-note">
             <span data-lucide="shield-check" data-size="16" class="privacy-icon"></span>
-            <span>100% Local processing. Uncompressed PDF bytes stay in memory. New records commit to SQLite atomically.</span>
+            <span><strong>Zero cloud dependency:</strong> Uncompressed PDF bytes are processed in local memory. Deduplicated records commit atomically to your local SQLite database.</span>
           </div>
         </div>
 
-        <!-- Right Side: Rules & Recent Batch Receipt -->
+        <!-- Right Side: Interactive Extraction Receipt & Rules -->
         <div class="receipt-card">
+          <!-- Batch Receipt Card (Appears after extraction) -->
           <div id="import-receipt" class="import-receipt" hidden>
-            <div class="receipt-header">
-              <span data-lucide="check-circle-2" data-size="16" class="receipt-icon"></span>
-              <p class="eyebrow">LATEST BATCH SUMMARY</p>
+            <div class="receipt-header-strip">
+              <div class="receipt-icon-box">
+                <span data-lucide="check-circle-2" data-size="18"></span>
+              </div>
+              <div>
+                <p class="eyebrow">EXTRACTION COMPLETE</p>
+                <h3 class="receipt-title">Batch Successfully Processed</h3>
+              </div>
+              <span class="receipt-badge">Saved</span>
             </div>
+
+            <div class="receipt-kpis">
+              <div class="rkpi-card">
+                <span class="rkpi-label">NEW CARRIERS ADDED</span>
+                <strong id="receipt-added" class="rkpi-val emerald">+0</strong>
+              </div>
+              <div class="rkpi-card">
+                <span class="rkpi-label">DUPLICATES MERGED</span>
+                <strong id="receipt-skipped" class="rkpi-val amber">0</strong>
+              </div>
+              <div class="rkpi-card">
+                <span class="rkpi-label">REGISTERS PROCESSED</span>
+                <strong id="receipt-docs" class="rkpi-val cyan">0</strong>
+              </div>
+            </div>
+
             <strong id="import-summary" class="import-summary-title"></strong>
+
+            <div class="receipt-actions-row">
+              <button type="button" id="receipt-view-prospects" class="btn btn-primary btn-sm">
+                <span>View Extracted Prospects</span>
+                <span data-lucide="arrow-right" data-size="14"></span>
+              </button>
+            </div>
+
             <details class="import-details">
               <summary>View file-by-file breakdown</summary>
               <ul id="import-files" class="import-files-list"></ul>
             </details>
           </div>
 
+          <!-- Rules Panel -->
           <div class="rules-panel">
-            <p class="eyebrow">AUTOMATED DEDUPLICATION & RULES</p>
-            <h2 class="rules-heading">Clean prospect data.<br>Zero duplicate calls.</h2>
+            <div class="rules-header">
+              <span class="rules-icon-tag"><span data-lucide="filter" data-size="14"></span> RULES ENGINE</span>
+              <p class="eyebrow">DEDUPLICATION & CLASSIFICATION</p>
+            </div>
+            <h2 class="rules-heading">Deterministic Logic.<br>Zero Duplicate Calls.</h2>
+            <p class="rules-intro">Every application in the 6-column register is evaluated against strict business entity criteria:</p>
 
             <div class="rule-item">
               <div class="rule-icon-circle yes">
                 <span data-lucide="check-circle-2" data-size="18"></span>
               </div>
               <div class="rule-text">
-                <strong>Property Freight & Movers</strong>
-                <p>Property, enterprise freight, and household-goods carriers are classified as prospects. Exactly one deduplicated row per USDOT across all uploaded registers.</p>
-              </div>
-            </div>
-
-            <div class="rule-item">
-              <div class="rule-icon-circle excluded">
-                <span data-lucide="minus-circle" data-size="18"></span>
-              </div>
-              <div class="rule-text">
-                <strong>Brokers & Forwarders Excluded</strong>
-                <p>Brokers, freight forwarders, and passenger operators are quarantined in Excluded, keeping your calling shortlist razor sharp.</p>
+                <strong>Property Freight & Movers (Relevant)</strong>
+                <p>Commercial carriers filing for <em>Motor Carrier of Property</em> or <em>Household Goods</em>. Deduplicated strictly by USDOT. Exactly one profile per carrier.</p>
               </div>
             </div>
 
@@ -382,14 +493,34 @@
                 <span data-lucide="alert-circle" data-size="18"></span>
               </div>
               <div class="rule-text">
+                <strong>Enterprise & Cross-Border (Review)</strong>
+                <p>Carriers with enterprise designations, Mexico-domiciled entities, or unresolved authority notes are flagged for quick dispatcher manual review.</p>
+              </div>
+            </div>
+
+            <div class="rule-item">
+              <div class="rule-icon-circle excluded">
+                <span data-lucide="ban" data-size="18"></span>
+              </div>
+              <div class="rule-text">
+                <strong>Brokers & Forwarders (Excluded)</strong>
+                <p>Freight brokers, passenger buses, and freight forwarders are quarantined to prevent wasted cold calls.</p>
+              </div>
+            </div>
+
+            <div class="rule-item">
+              <div class="rule-icon-circle yes">
+                <span data-lucide="rotate-ccw" data-size="18"></span>
+              </div>
+              <div class="rule-text">
                 <strong>Newest Contact Precedence</strong>
-                <p>When a carrier files repeatedly across multiple dates, the latest filed contact details are preferred while all historical source records are retained.</p>
+                <p>When a carrier appears in multiple daily registers with different phone numbers or officers, the latest filed contact is prioritized.</p>
               </div>
             </div>
 
             <a class="source-link" href="https://safer.fmcsa.dot.gov/CompanySnapshot.aspx" target="_blank" rel="noreferrer">
-              <span>Open FMCSA SAFER carrier lookup</span>
               <span data-lucide="external-link" data-size="13"></span>
+              <span>Verify active filings on FMCSA SAFER</span>
             </a>
           </div>
         </div>
@@ -498,18 +629,72 @@
         <div class="trash-heading">
           <div>
             <p class="eyebrow">RECOVER DELETED ITEMS</p>
-            <h2>Trash & Deletion Archive</h2>
+            <h2>Trash & Recovery Archive</h2>
             <p class="subtitle">Each entry represents a deletion action. Restore any entry to immediately reinstate its records or registers; other deletions remain in place.</p>
           </div>
-          <button id="library-open-trash" class="btn btn-secondary btn-sm" hidden>
-            <span data-lucide="refresh-cw" data-size="13"></span>
-            <span>Refresh Trash</span>
-          </button>
+          <div class="trash-heading-actions">
+            <button id="trash-restore-all-btn" class="btn btn-secondary btn-sm" type="button" title="Restore all deleted items">
+              <span data-lucide="rotate-ccw" data-size="13"></span>
+              <span>Restore All</span>
+            </button>
+            <button id="trash-refresh-btn" class="btn btn-ghost btn-sm" type="button" title="Refresh trash from database">
+              <span data-lucide="refresh-cw" data-size="13"></span>
+              <span>Refresh</span>
+            </button>
+          </div>
         </div>
 
-        <div class="trash-search-box">
-          <span class="search-icon" data-lucide="search" data-size="15"></span>
-          <input id="trash-search" type="search" placeholder="Search by company name, USDOT, or register filename…" aria-label="Search deletions">
+        <!-- Trash Metrics HUD Strip -->
+        <div class="trash-metrics-grid">
+          <div class="trash-metric-card">
+            <div class="trash-metric-header">
+              <span class="trash-metric-label">DELETED CARRIERS</span>
+              <span class="trash-metric-icon amber"><span data-lucide="truck" data-size="16"></span></span>
+            </div>
+            <strong id="trash-metric-dots" class="trash-metric-value monospace">0</strong>
+            <span class="trash-metric-hint">Carrier prospect profiles in trash</span>
+          </div>
+
+          <div class="trash-metric-card">
+            <div class="trash-metric-header">
+              <span class="trash-metric-label">DELETED REGISTERS</span>
+              <span class="trash-metric-icon cyan"><span data-lucide="folder-archive" data-size="16"></span></span>
+            </div>
+            <strong id="trash-metric-docs" class="trash-metric-value monospace">0</strong>
+            <span class="trash-metric-hint">Daily register PDFs in trash</span>
+          </div>
+
+          <div class="trash-metric-card">
+            <div class="trash-metric-header">
+              <span class="trash-metric-label">RECOVERY STATUS</span>
+              <span class="trash-metric-icon emerald"><span data-lucide="shield-check" data-size="16"></span></span>
+            </div>
+            <strong class="trash-metric-value">100% Reversible</strong>
+            <span class="trash-metric-hint">Zero permanent data loss until restored</span>
+          </div>
+        </div>
+
+        <!-- Trash Toolbar: Search & Filter Tabs -->
+        <div class="trash-toolbar">
+          <div class="trash-search-box">
+            <span class="search-icon" data-lucide="search" data-size="14"></span>
+            <input id="trash-search" type="search" placeholder="Search by USDOT, company name, or register filename…" aria-label="Search deletions">
+          </div>
+
+          <div class="trash-filter-pills" role="tablist" aria-label="Trash filter">
+            <button type="button" class="trash-filter-btn active" data-trash-filter="all">
+              <span>All Items</span>
+              <span id="trash-tab-count-all" class="trash-pill-count">0</span>
+            </button>
+            <button type="button" class="trash-filter-btn" data-trash-filter="dots">
+              <span>Carriers</span>
+              <span id="trash-tab-count-dots" class="trash-pill-count">0</span>
+            </button>
+            <button type="button" class="trash-filter-btn" data-trash-filter="documents">
+              <span>Registers</span>
+              <span id="trash-tab-count-docs" class="trash-pill-count">0</span>
+            </button>
+          </div>
         </div>
 
         <p id="trash-feedback" class="feedback" role="status"></p>
@@ -814,7 +999,7 @@
   </dialog>
 
   <!-- Persistent Floating Undo Notification -->
-  <div id="undo-notice" class="undo-notice" hidden>
+  <div id="undo-notice" class="undo-notice" hidden style="display: none;">
     <div class="undo-content">
       <span data-lucide="rotate-ccw" data-size="15" class="undo-icon"></span>
       <p id="undo-message" role="status" aria-live="polite"></p>
@@ -887,8 +1072,8 @@
   <!-- Footer -->
   <footer class="app-footer">
     <div class="footer-inner">
-      <span><strong>R2D</strong> · REGISTER TO DOT · Developed by <strong>Bukhtyar Haider</strong></span>
-      <span>Tactical FMCSA Register Intelligence · 100% Local SQLite Architecture</span>
+      <span><strong>R2D</strong> · V1.0.0</span>
+      <span>· Developed by <strong>Bukhtyar Haider</strong></span>
     </div>
   </footer>
 </body>

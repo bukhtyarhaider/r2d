@@ -246,10 +246,12 @@ def combine(documents: list[dict], include_movers: bool = True) -> dict:
     leads.sort(key=lambda r: (r["decision"] != "relevant", r["decision"] != "review", r["name"].casefold(), r["dot"]))
     counts = Counter(r["decision"] for r in leads)
     rows = sum(len(d["records"]) for d in documents)
+    unique_categories = sorted({c for lead in leads for c in lead.get("categories", []) if c})
     return {"leads": leads, "summary": {"rows": rows, "unique": len(leads),
             "duplicates": rows - len(leads), "relevant": counts["relevant"],
             "excluded": counts["excluded"], "review": counts["review"],
             "pages": sum(d["pages"] for d in documents)},
+            "categories": unique_categories,
             "documents": [{k: v for k, v in d.items() if k != "records"} for d in documents]}
 
 

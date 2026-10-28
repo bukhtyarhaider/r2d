@@ -409,9 +409,11 @@ class Store {
         if (dec !== 'excluded') return false;
       }
 
-      // 2. Category filter
-      if (category && (!Array.isArray(lead.categories) || !lead.categories.includes(category))) {
-        return false;
+      // 2. Category / Authority Scope filter
+      if (category) {
+        if (!Array.isArray(lead.categories)) return false;
+        const target = category.trim().toLowerCase();
+        if (!lead.categories.some(c => (c || '').trim().toLowerCase() === target)) return false;
       }
 
       // 3. Country filter
@@ -1034,6 +1036,27 @@ class FilterBarComponent {
     this.store.subscribe((state, event) => {
       this.syncUI(state);
     });
+
+    // Setup dynamic sticky offset sync
+    this.syncFilterDeckHeight();
+    const filterCard = document.querySelector('.prospects-filter-card');
+    if (filterCard && window.ResizeObserver) {
+      const ro = new ResizeObserver(() => {
+        this.syncFilterDeckHeight();
+      });
+      ro.observe(filterCard);
+    }
+    window.addEventListener('resize', () => this.syncFilterDeckHeight());
+  }
+
+  syncFilterDeckHeight() {
+    const card = document.querySelector('.prospects-filter-card');
+    if (card) {
+      const h = Math.round(card.getBoundingClientRect().height);
+      if (h > 0) {
+        document.documentElement.style.setProperty('--filter-deck-height', `${h}px`);
+      }
+    }
   }
 
   renderStateChips() {
@@ -1080,6 +1103,8 @@ class FilterBarComponent {
         this.renderStateChips();
       });
     });
+
+    this.syncFilterDeckHeight();
   }
 
   clearAllFilters() {
@@ -1129,20 +1154,34 @@ class FilterBarComponent {
       this.visibleBadge.textContent = `${format(count)} ${count === 1 ? 'carrier' : 'carriers'} matching`;
     }
 
-    // 4. Populate category options if empty
-    if (this.categorySelect && this.categorySelect.children.length <= 1 && state.categories?.length) {
-      const frag = document.createDocumentFragment();
-      for (const cat of state.categories) {
-        const opt = document.createElement('option');
-        opt.value = cat;
-        opt.textContent = cat;
-        frag.appendChild(opt);
+    // 4. Populate category / authority scope options
+    if (this.categorySelect && state.categories?.length) {
+      const currentVal = this.store.getState().category || this.categorySelect.value;
+      const existingOptions = Array.from(this.categorySelect.options).slice(1).map(o => o.value);
+      const isUpToDate = existingOptions.length === state.categories.length &&
+        state.categories.every((cat, i) => existingOptions[i] === cat);
+      if (!isUpToDate) {
+        this.categorySelect.innerHTML = '<option value="">All authority scopes</option>';
+        const frag = document.createDocumentFragment();
+        for (const cat of state.categories) {
+          const opt = document.createElement('option');
+          opt.value = cat;
+          opt.textContent = cat;
+          if (cat === currentVal) opt.selected = true;
+          frag.appendChild(opt);
+        }
+        this.categorySelect.appendChild(frag);
+        if (currentVal) this.categorySelect.value = currentVal;
       }
-      this.categorySelect.appendChild(frag);
     }
 
     // 5. Selection bar update
     const selCount = state.selectedDots.size;
+    if (this.selectionBar) {
+      this.selectionBar.hidden = selCount === 0;
+      this.selectionBar.style.display = selCount === 0 ? 'none' : 'flex';
+    }
+
     if (this.selectionCount) {
       this.selectionCount.textContent = selCount === 0
         ? 'No carriers selected'
@@ -1169,6 +1208,8 @@ class FilterBarComponent {
     if (this.deleteSelectedBtn) {
       this.deleteSelectedBtn.disabled = selCount === 0;
     }
+
+    this.syncFilterDeckHeight();
   }
 
   openDeleteDialog(targets) {
@@ -1444,11 +1485,12 @@ class ProspectsTableComponent {
             <span class="date-val monospace" title="FMCSA Register filing date">${lead.filing_date || '—'}</span>
           </td>
 
-          <!-- Applied Categories -->
+          <!-- Authority Scope -->
           <td class="col-categories">
             <div class="cat-pill-wrap">
-              ${categories.slice(0, 2).map(c => `<span class="cat-pill" title="${c}">${truncate(c, 24)}</span>`).join('')}
-              ${categories.length > 2 ? `<span class="cat-pill-more">+${categories.length - 2}</span>` : ''}
+              ${categories.length > 0 
+                ? categories.map(c => `<span class="cat-pill" title="${c}">${c}</span>`).join('')
+                : '<span class="cat-pill cat-none">Not specified</span>'}
             </div>
           </td>
 
@@ -1693,23 +1735,28 @@ class CarrierDossierComponent {
           </div>
         </div>
 
-        <!-- Section: Raw Register Evidence Snippet -->
-        ${carrier.evidence ? `
+        <!-- Section: Register Evidence & Filings -->
+        ${carrier.evidence && (Array.isArray(carrier.evidence) ? carrier.evidence.length > 0 : true) ? `
           <div class="dossier-card">
             <div class="dossier-card-title">
               ${renderIcon('file-text', 14)}
-              <span>Raw Register PDF Extract</span>
+              <span>Filing Source Evidence (${Array.isArray(carrier.evidence) ? carrier.evidence.length : 1})</span>
             </div>
-            <pre class="dossier-evidence-raw">${escapeHtml(carrier.evidence)}</pre>
+            <div class="evidence-items-list">
+              ${renderEvidenceList(carrier.evidence)}
+            </div>
           </div>
         ` : ''}
       </div>
     `;
 
     // Bind close
-    this.drawer.querySelector('.dossier-close-btn').addEventListener('click', () => {
-      this.store.closeDossier();
-    });
+    const closeBtn = this.drawer.querySelector('.dossier-close-btn');
+    if (closeBtn) {
+      closeBtn.addEventListener('click', () => {
+        this.store.closeDossier();
+      });
+    }
 
     // Bind copy buttons
     this.drawer.querySelectorAll('[data-copy-val]').forEach(btn => {
@@ -1728,12 +1775,50 @@ class CarrierDossierComponent {
   }
 }
 
-function escapeHtml(str) {
-  if (!str) return '';
+function renderEvidenceList(evidence) {
+  if (!evidence) return '';
+  const items = Array.isArray(evidence) ? evidence : [evidence];
+  if (!items.length) return '';
+
+  return items.map((ev, idx) => {
+    if (typeof ev !== 'object' || ev === null) {
+      return `<pre class="dossier-evidence-raw">${escapeHtml(ev)}</pre>`;
+    }
+    const source = escapeHtml(ev.source || 'Register PDF');
+    const pages = Array.isArray(ev.pages) ? ev.pages.join(', ') : (ev.pages || '—');
+    const cat = escapeHtml(ev.category || '—');
+    const filing = escapeHtml(ev.filing_date || '—');
+
+    return `
+      <div class="evidence-item-card">
+        <div class="evidence-item-header">
+          <span class="evidence-source-tag">${renderIcon('file-text', 12)} ${source}</span>
+          <span class="evidence-page-tag">Page ${pages}</span>
+        </div>
+        <div class="evidence-item-meta">
+          <div class="evidence-field">
+            <span class="evidence-label">Filing Date:</span>
+            <span class="evidence-val monospace">${filing}</span>
+          </div>
+          <div class="evidence-field">
+            <span class="evidence-label">Authority:</span>
+            <span class="evidence-val">${cat}</span>
+          </div>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function escapeHtml(val) {
+  if (val === null || val === undefined) return '';
+  const str = typeof val === 'string' ? val : (typeof val === 'object' ? JSON.stringify(val, null, 2) : String(val));
   return str
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
 }
 
 // =====================================================================
@@ -1757,13 +1842,29 @@ class BatchImporterComponent {
 
     this.progressArea = document.getElementById('progress-area');
     this.progressBar = document.getElementById('progress');
+    this.progressFill = document.getElementById('progress-fill');
+    this.progressPct = document.getElementById('progress-pct');
     this.progressText = document.getElementById('progress-text');
     this.progressHealth = document.getElementById('progress-health');
     this.feedback = document.getElementById('feedback');
 
+    this.fileQueueBar = document.getElementById('file-queue-bar');
+    this.queueCount = document.getElementById('queue-count');
+    this.queueSize = document.getElementById('queue-size');
+    this.clearQueueBtn = document.getElementById('clear-queue-btn');
+
     this.receiptCard = document.getElementById('import-receipt');
+    this.receiptAdded = document.getElementById('receipt-added');
+    this.receiptSkipped = document.getElementById('receipt-skipped');
+    this.receiptDocs = document.getElementById('receipt-docs');
+    this.receiptViewBtn = document.getElementById('receipt-view-prospects');
     this.importSummary = document.getElementById('import-summary');
     this.importFilesList = document.getElementById('import-files');
+
+    this.stageUpload = document.getElementById('stage-upload');
+    this.stageParse = document.getElementById('stage-parse');
+    this.stageDedup = document.getElementById('stage-dedup');
+    this.stageCommit = document.getElementById('stage-commit');
 
     this.selectedFiles = [];
     this.pollingTimer = null;
@@ -1799,6 +1900,19 @@ class BatchImporterComponent {
       });
     }
 
+    if (this.clearQueueBtn) {
+      this.clearQueueBtn.addEventListener('click', () => {
+        this.selectedFiles = [];
+        this.renderFileList();
+      });
+    }
+
+    if (this.receiptViewBtn) {
+      this.receiptViewBtn.addEventListener('click', () => {
+        this.store.setState({ activeTab: 'prospects' }, 'tabChange');
+      });
+    }
+
     if (this.extractBtn) {
       this.extractBtn.addEventListener('click', () => this.startExtraction());
     }
@@ -1830,10 +1944,23 @@ class BatchImporterComponent {
 
     if (this.selectedFiles.length === 0) {
       if (this.extractBtn) this.extractBtn.disabled = true;
+      if (this.fileQueueBar) this.fileQueueBar.hidden = true;
       return;
     }
 
     if (this.extractBtn) this.extractBtn.disabled = false;
+    if (this.fileQueueBar) this.fileQueueBar.hidden = false;
+
+    // Calculate total size
+    const totalBytes = this.selectedFiles.reduce((acc, f) => acc + (f.size || 0), 0);
+    const totalMb = (totalBytes / (1024 * 1024)).toFixed(1);
+
+    if (this.queueCount) {
+      this.queueCount.textContent = `${this.selectedFiles.length} file${this.selectedFiles.length === 1 ? '' : 's'} queued`;
+    }
+    if (this.queueSize) {
+      this.queueSize.textContent = `${totalMb} MB total`;
+    }
 
     this.selectedFiles.forEach((file, idx) => {
       const li = document.createElement('li');
@@ -1845,8 +1972,9 @@ class BatchImporterComponent {
           <span class="file-item-icon">${renderIcon('file-text', 14)}</span>
           <span class="file-item-name">${file.name}</span>
           <span class="file-item-size">${sizeMb} MB</span>
+          <span class="file-item-status">Ready</span>
         </div>
-        <button type="button" class="file-item-remove" aria-label="Remove file">
+        <button type="button" class="file-item-remove" aria-label="Remove file" title="Remove ${file.name}">
           ${renderIcon('x', 13)}
         </button>
       `;
@@ -1859,19 +1987,36 @@ class BatchImporterComponent {
     });
   }
 
+  updateProgressStages(pct) {
+    if (this.progressBar) this.progressBar.value = pct;
+    if (this.progressFill) this.progressFill.style.width = `${pct}%`;
+    if (this.progressPct) this.progressPct.textContent = `${pct}%`;
+
+    const setStage = (el, active, done) => {
+      if (!el) return;
+      el.classList.toggle('active', active);
+      el.classList.toggle('done', done);
+    };
+
+    setStage(this.stageUpload, pct < 25, pct >= 25);
+    setStage(this.stageParse, pct >= 25 && pct < 75, pct >= 75);
+    setStage(this.stageDedup, pct >= 75 && pct < 95, pct >= 95);
+    setStage(this.stageCommit, pct >= 95, pct >= 100);
+  }
+
   async startExtraction() {
     if (!this.selectedFiles.length) return;
 
     this.extractBtn.disabled = true;
     if (this.cancelBtn) this.cancelBtn.hidden = false;
     if (this.progressArea) this.progressArea.hidden = false;
-    if (this.progressBar) this.progressBar.value = 5;
-    if (this.progressText) this.progressText.textContent = 'Uploading register PDFs to local engine…';
+    this.updateProgressStages(5);
+    if (this.progressText) this.progressText.textContent = 'Buffering register PDFs in local memory…';
 
     try {
       const res = await api.uploadBatch(this.selectedFiles, (loaded, total) => {
-        const pct = Math.round((loaded / total) * 50);
-        if (this.progressBar) this.progressBar.value = Math.max(5, pct);
+        const pct = Math.round((loaded / total) * 30);
+        this.updateProgressStages(Math.max(5, pct));
       });
 
       this.store.setState({ activeJobId: res.id });
@@ -1895,13 +2040,13 @@ class BatchImporterComponent {
         const totalFiles = job.file_count || this.selectedFiles.length || 1;
 
         const filePct = (page / pages);
-        const overall = Math.round((((fileIdx - 1) + filePct) / totalFiles) * 100);
+        const overall = Math.round(30 + (((fileIdx - 1) + filePct) / totalFiles) * 65);
 
-        if (this.progressBar) this.progressBar.value = Math.min(95, overall);
-        if (this.progressText) this.progressText.textContent = job.message || `Processing register ${fileIdx} of ${totalFiles}…`;
-        if (this.progressHealth) this.progressHealth.textContent = `Elapsed: ${job.elapsed_seconds || 0}s`;
+        this.updateProgressStages(Math.min(95, overall));
+        if (this.progressText) this.progressText.textContent = job.message || `Parsing register ${fileIdx} of ${totalFiles} (page ${page}/${pages})…`;
+        if (this.progressHealth) this.progressHealth.textContent = `Elapsed: ${job.elapsed_seconds || 0}s · Local SQLite Engine Active`;
 
-        this.pollingTimer = setTimeout(() => this.pollJob(jobId), 400);
+        this.pollingTimer = setTimeout(() => this.pollJob(jobId), 350);
       } else if (job.status === 'complete') {
         this.onExtractionComplete(job);
       } else if (job.status === 'cancelled') {
@@ -1927,7 +2072,7 @@ class BatchImporterComponent {
   }
 
   onExtractionComplete(job) {
-    if (this.progressBar) this.progressBar.value = 100;
+    this.updateProgressStages(100);
     if (this.progressText) this.progressText.textContent = 'Extraction complete! Records saved to local database.';
     if (this.cancelBtn) this.cancelBtn.hidden = true;
     if (this.extractBtn) this.extractBtn.disabled = false;
@@ -1940,13 +2085,27 @@ class BatchImporterComponent {
 
     // Refresh history
     api.fetchHistory().then(data => {
+      const res = data.result || {};
+      const leads = res.leads || [];
+
+      // Discover unique categories
+      const catSet = new Set(res.categories || []);
+      for (const lead of leads) {
+        if (Array.isArray(lead.categories)) {
+          for (const c of lead.categories) {
+            if (c && typeof c === 'string' && c.trim()) catSet.add(c.trim());
+          }
+        }
+      }
+      const uniqueCategories = Array.from(catSet).sort((a, b) => a.localeCompare(b));
+
       this.store.setState({
-        history: data.result,
-        prospects: data.result.leads || [],
-        categories: data.result.categories || [],
-        registers: data.result.documents || [],
-        trash: data.result.trash || [],
-        summary: data.result.summary || {}
+        history: res,
+        prospects: leads,
+        categories: uniqueCategories,
+        registers: res.documents || [],
+        trash: res.trash || [],
+        summary: res.summary || {}
       }, 'historyLoad');
       this.store.computeFilteredProspects();
     });
@@ -1974,9 +2133,14 @@ class BatchImporterComponent {
     const imported = job.imported || {};
     const added = imported.added || 0;
     const skipped = imported.skipped || 0;
+    const docs = imported.files?.length || 0;
+
+    if (this.receiptAdded) this.receiptAdded.textContent = `+${added.toLocaleString()}`;
+    if (this.receiptSkipped) this.receiptSkipped.textContent = skipped.toLocaleString();
+    if (this.receiptDocs) this.receiptDocs.textContent = docs.toLocaleString();
 
     if (this.importSummary) {
-      this.importSummary.textContent = `Batch Result: ${added.toLocaleString()} new carrier${added === 1 ? '' : 's'} added · ${skipped.toLocaleString()} existing duplicates retained.`;
+      this.importSummary.textContent = `${added.toLocaleString()} new carrier prospect${added === 1 ? '' : 's'} imported. ${skipped.toLocaleString()} duplicate filings merged.`;
     }
 
     if (this.importFilesList && imported.files) {
@@ -2022,6 +2186,16 @@ class ArchiveManagerComponent {
     this.trashListContainer = document.getElementById('trash-list');
     this.trashSearchInput = document.getElementById('trash-search');
     this.trashFeedback = document.getElementById('trash-feedback');
+    this.trashMetricDots = document.getElementById('trash-metric-dots');
+    this.trashMetricDocs = document.getElementById('trash-metric-docs');
+    this.trashRestoreAllBtn = document.getElementById('trash-restore-all-btn');
+    this.trashRefreshBtn = document.getElementById('trash-refresh-btn');
+    this.trashFilterBtns = document.querySelectorAll('.trash-filter-btn');
+    this.trashTabCountAll = document.getElementById('trash-tab-count-all');
+    this.trashTabCountDots = document.getElementById('trash-tab-count-dots');
+    this.trashTabCountDocs = document.getElementById('trash-tab-count-docs');
+    this.trashSearchQuery = '';
+    this.trashFilterType = 'all';
 
     // Deletion Modal
     this.deleteDialog = document.getElementById('delete-dialog');
@@ -2035,6 +2209,11 @@ class ArchiveManagerComponent {
     this.undoBtn = document.getElementById('undo-delete');
     this.dismissUndoBtn = document.getElementById('dismiss-undo');
     this.lastDeletedId = null;
+
+    if (this.undoNotice) {
+      this.undoNotice.hidden = true;
+      this.undoNotice.style.display = 'none';
+    }
 
     this.registerSearchQuery = '';
     this.registerSortBy = 'newest';
@@ -2106,14 +2285,20 @@ class ArchiveManagerComponent {
       this.undoBtn.addEventListener('click', () => {
         if (this.lastDeletedId) {
           this.restoreItem(this.lastDeletedId);
-          if (this.undoNotice) this.undoNotice.hidden = true;
+          if (this.undoNotice) {
+            this.undoNotice.hidden = true;
+            this.undoNotice.style.display = 'none';
+          }
         }
       });
     }
 
     if (this.dismissUndoBtn) {
       this.dismissUndoBtn.addEventListener('click', () => {
-        if (this.undoNotice) this.undoNotice.hidden = true;
+        if (this.undoNotice) {
+          this.undoNotice.hidden = true;
+          this.undoNotice.style.display = 'none';
+        }
       });
     }
 
@@ -2164,8 +2349,36 @@ class ArchiveManagerComponent {
     // Trash search
     if (this.trashSearchInput) {
       this.trashSearchInput.addEventListener('input', (e) => {
-        this.store.setState({ trashSearch: e.target.value }, 'trashSearchChange');
+        this.trashSearchQuery = (e.target.value || '').trim().toLowerCase();
         this.renderTrash(this.store.getState());
+      });
+    }
+
+    // Trash filter pills
+    this.trashFilterBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const filter = btn.getAttribute('data-trash-filter') || 'all';
+        this.trashFilterType = filter;
+        this.trashFilterBtns.forEach(b => {
+          const match = b.getAttribute('data-trash-filter') === filter;
+          b.classList.toggle('active', match);
+        });
+        this.renderTrash(this.store.getState());
+      });
+    });
+
+    // Trash Restore All button
+    if (this.trashRestoreAllBtn) {
+      this.trashRestoreAllBtn.addEventListener('click', () => {
+        this.restoreAllTrash();
+      });
+    }
+
+    // Trash Refresh button
+    if (this.trashRefreshBtn) {
+      this.trashRefreshBtn.addEventListener('click', () => {
+        this.renderTrash(this.store.getState());
+        Toast.info('Trash view refreshed');
       });
     }
 
@@ -2174,6 +2387,57 @@ class ArchiveManagerComponent {
       this.renderRegisters(state);
       this.renderTrash(state);
     });
+  }
+
+  async restoreAllTrash() {
+    const trash = this.store.getState().trash || [];
+    if (!trash.length) {
+      Toast.info('Trash is already empty.');
+      return;
+    }
+    if (!confirm(`Restore all ${trash.length.toLocaleString()} deleted item batch${trash.length === 1 ? '' : 'es'} back to active records?`)) {
+      return;
+    }
+
+    let successCount = 0;
+    for (const item of trash) {
+      try {
+        await api.restoreRecord(item.id);
+        successCount++;
+      } catch (err) {
+        console.error('Failed to restore item:', item.id, err);
+      }
+    }
+
+    try {
+      const data = await api.fetchHistory();
+      const res = data.result || {};
+      const leads = res.leads || [];
+
+      // Discover and sort all unique authority categories
+      const catSet = new Set(res.categories || []);
+      for (const lead of leads) {
+        if (Array.isArray(lead.categories)) {
+          for (const c of lead.categories) {
+            if (c && typeof c === 'string' && c.trim()) catSet.add(c.trim());
+          }
+        }
+      }
+      const uniqueCategories = Array.from(catSet).sort((a, b) => a.localeCompare(b));
+
+      this.store.setState({
+        history: res,
+        prospects: leads,
+        categories: uniqueCategories,
+        registers: res.documents || [],
+        trash: res.trash || [],
+        summary: res.summary || {}
+      }, 'historyLoad');
+      this.store.computeFilteredProspects();
+      Toast.success(`Restored all ${successCount.toLocaleString()} deleted batches successfully!`);
+    } catch (err) {
+      Toast.error('Failed to reload database after restore');
+    }
   }
 
   filterProspectsByRegister(query) {
@@ -2363,48 +2627,135 @@ class ArchiveManagerComponent {
   renderTrash(state) {
     if (!this.trashListContainer) return;
     const trash = state.trash || [];
-    const query = (state.trashSearch || '').trim().toLowerCase();
 
-    const filtered = query ? trash.filter(item => {
-      const hay = `${item.title || item.label || ''} ${item.kind || ''} ${(item.targets || []).join(' ')}`.toLowerCase();
-      return hay.includes(query);
-    }) : trash;
+    // Calculate HUD Metrics
+    let deletedDotsCount = 0;
+    let deletedDocsCount = 0;
+    for (const item of trash) {
+      const count = item.targets?.length || item.count || 1;
+      if (item.kind === 'dots') deletedDotsCount += count;
+      else if (item.kind === 'documents') deletedDocsCount += count;
+    }
+
+    if (this.trashMetricDots) this.trashMetricDots.textContent = deletedDotsCount.toLocaleString();
+    if (this.trashMetricDocs) this.trashMetricDocs.textContent = deletedDocsCount.toLocaleString();
+
+    // Tab Counts
+    if (this.trashTabCountAll) this.trashTabCountAll.textContent = trash.length.toLocaleString();
+    if (this.trashTabCountDots) this.trashTabCountDots.textContent = trash.filter(t => t.kind === 'dots').length.toLocaleString();
+    if (this.trashTabCountDocs) this.trashTabCountDocs.textContent = trash.filter(t => t.kind === 'documents').length.toLocaleString();
+
+    // Filter by type
+    let filtered = trash;
+    if (this.trashFilterType === 'dots') {
+      filtered = filtered.filter(t => t.kind === 'dots');
+    } else if (this.trashFilterType === 'documents') {
+      filtered = filtered.filter(t => t.kind === 'documents');
+    }
+
+    // Filter by search query
+    const query = this.trashSearchQuery || '';
+    if (query) {
+      filtered = filtered.filter(item => {
+        const hay = `${item.title || item.label || ''} ${item.kind || ''} ${(item.targets || []).join(' ')}`.toLowerCase();
+        return hay.includes(query);
+      });
+    }
 
     if (filtered.length === 0) {
+      const isSearchActive = Boolean(query || this.trashFilterType !== 'all');
       this.trashListContainer.innerHTML = `
         <div class="empty-trash-box">
           <div class="empty-icon-circle">
-            ${renderIcon('trash-2', 32)}
+            ${renderIcon(isSearchActive ? 'filter-x' : 'shield-check', 36)}
           </div>
-          <h3>${trash.length === 0 ? 'Trash is Empty' : 'No Deleted Items Match Search'}</h3>
-          <p>${trash.length === 0 ? 'No deleted carriers or registers in local storage. All records are currently active.' : 'Try searching with a different term.'}</p>
+          <h3>${isSearchActive ? 'No Deleted Items Match Active Filters' : 'Trash is Clean & Empty'}</h3>
+          <p>${isSearchActive 
+            ? 'Try resetting your search query or switching to All Trash to view more deletions.' 
+            : 'All deduplicated FMCSA carrier prospects and daily register PDFs are currently active in your local database.'}</p>
+          <div class="empty-trash-actions">
+            ${isSearchActive ? `
+              <button type="button" class="btn btn-secondary btn-sm" id="reset-trash-filters-btn">
+                <span>Reset Filters</span>
+              </button>
+            ` : `
+              <button type="button" class="btn btn-primary btn-sm" id="empty-trash-go-prospects">
+                <span>Explore Prospects</span>
+                ${renderIcon('arrow-right', 13)}
+              </button>
+            `}
+          </div>
         </div>
       `;
+
+      const resetBtn = document.getElementById('reset-trash-filters-btn');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          this.trashSearchQuery = '';
+          if (this.trashSearchInput) this.trashSearchInput.value = '';
+          this.trashFilterType = 'all';
+          this.trashFilterBtns.forEach(b => b.classList.toggle('active', b.getAttribute('data-trash-filter') === 'all'));
+          this.renderTrash(this.store.getState());
+        });
+      }
+
+      const goProspectsBtn = document.getElementById('empty-trash-go-prospects');
+      if (goProspectsBtn) {
+        goProspectsBtn.addEventListener('click', () => {
+          this.store.setState({ activeTab: 'prospects' }, 'tabChange');
+        });
+      }
       return;
     }
 
     this.trashListContainer.innerHTML = filtered.map(item => {
       const id = item.id;
-      const title = item.title || item.label || `Deleted ${item.kind || 'items'}`;
-      const time = item.deleted_at ? new Date(item.deleted_at * 1000).toLocaleString() : 'Recently';
+      const title = this.escapeHTML(item.title || item.label || `Deleted ${item.kind || 'items'}`);
+      const time = item.deleted_at ? new Date(item.deleted_at * 1000).toLocaleString(undefined, {
+        month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit'
+      }) : 'Recently';
       const count = item.targets?.length || item.count || 0;
       const isDoc = item.kind === 'documents';
+      const targets = Array.isArray(item.targets) ? item.targets : [];
 
       return `
-        <div class="trash-item">
-          <div class="trash-item-left">
-            <span class="trash-item-icon ${isDoc ? 'doc' : 'carrier'}">
-              ${renderIcon(isDoc ? 'folder-archive' : 'truck', 16)}
-            </span>
-            <div class="trash-item-details">
-              <strong>${title}</strong>
-              <span class="trash-item-meta">${count.toLocaleString()} ${item.kind === 'dots' ? 'carriers' : 'registers'} · Deleted ${time}</span>
+        <div class="trash-card ${isDoc ? 'trash-doc' : 'trash-lead'}">
+          <div class="trash-card-left">
+            <div class="trash-card-icon-box ${isDoc ? 'doc' : 'carrier'}">
+              ${renderIcon(isDoc ? 'folder-archive' : (count > 1 ? 'layers' : 'truck'), 18)}
+            </div>
+            <div class="trash-card-details">
+              <div class="trash-card-title-row">
+                <span class="trash-card-badge ${isDoc ? 'badge-doc' : 'badge-lead'}">
+                  ${isDoc ? 'REGISTER ARCHIVE' : (count > 1 ? 'BATCH CARRIERS' : 'CARRIER PROSPECT')}
+                </span>
+                <strong class="trash-card-title">${title}</strong>
+              </div>
+              <div class="trash-card-meta-row">
+                <span class="trash-card-meta-item">
+                  ${renderIcon('clock', 12)}
+                  <span>Deleted ${time}</span>
+                </span>
+                <span class="trash-card-meta-dot">·</span>
+                <span class="trash-card-meta-item">
+                  ${renderIcon('hash', 12)}
+                  <span>${count.toLocaleString()} ${isDoc ? (count === 1 ? 'register' : 'registers') : (count === 1 ? 'carrier' : 'carriers')} affected</span>
+                </span>
+              </div>
+              ${targets.length > 1 && !isDoc ? `
+                <div class="trash-targets-preview">
+                  ${targets.slice(0, 6).map(t => `<span class="target-tag monospace">USDOT ${t}</span>`).join('')}
+                  ${targets.length > 6 ? `<span class="target-more">+${(targets.length - 6).toLocaleString()} more</span>` : ''}
+                </div>
+              ` : ''}
             </div>
           </div>
-          <button type="button" class="btn btn-secondary btn-sm restore-item-btn" data-restore-id="${id}">
-            ${renderIcon('rotate-ccw', 13)}
-            <span>Restore</span>
-          </button>
+          <div class="trash-card-actions">
+            <button type="button" class="btn btn-secondary btn-sm restore-item-btn" data-restore-id="${id}" title="Re-instate these records back to active database">
+              ${renderIcon('rotate-ccw', 13)}
+              <span>Restore Records</span>
+            </button>
+          </div>
         </div>
       `;
     }).join('');
@@ -2474,21 +2825,33 @@ class ArchiveManagerComponent {
         if (this.undoNotice && this.undoMessage) {
           this.undoMessage.textContent = `Moved ${targets.length.toLocaleString()} ${kind === 'dots' ? 'carrier' : 'register'}${targets.length === 1 ? '' : 's'} to Trash.`;
           this.undoNotice.hidden = false;
+          this.undoNotice.style.display = 'flex';
         }
       }
 
       Toast.success(`Moved ${targets.length.toLocaleString()} ${kind === 'dots' ? 'carrier' : 'register'}${targets.length === 1 ? '' : 's'} to Trash.`);
+
+      // Discover and sort all unique authority categories
+      const catSet = new Set(res.result?.categories || []);
+      for (const lead of (res.result?.leads || [])) {
+        if (Array.isArray(lead.categories)) {
+          for (const c of lead.categories) {
+            if (c && typeof c === 'string' && c.trim()) catSet.add(c.trim());
+          }
+        }
+      }
+      const uniqueCategories = Array.from(catSet).sort((a, b) => a.localeCompare(b));
 
       // Clear selections & update store
       this.store.clearSelection();
       this.store.setState({
         selectedDocuments: new Set(),
         history: res.result,
-        prospects: res.result.leads || [],
-        categories: res.result.categories || [],
-        registers: res.result.documents || [],
-        trash: res.result.trash || [],
-        summary: res.result.summary || {}
+        prospects: res.result?.leads || [],
+        categories: uniqueCategories,
+        registers: res.result?.documents || [],
+        trash: res.result?.trash || [],
+        summary: res.result?.summary || {}
       }, 'historyLoad');
       this.store.computeFilteredProspects();
     } catch (err) {
@@ -2506,15 +2869,29 @@ class ArchiveManagerComponent {
       const res = await api.restoreRecord(deletionId);
       Toast.success('Records restored successfully!');
 
-      if (this.undoNotice) this.undoNotice.hidden = true;
+      if (this.undoNotice) {
+        this.undoNotice.hidden = true;
+        this.undoNotice.style.display = 'none';
+      }
+
+      // Discover and sort all unique authority categories
+      const catSet = new Set(res.result?.categories || []);
+      for (const lead of (res.result?.leads || [])) {
+        if (Array.isArray(lead.categories)) {
+          for (const c of lead.categories) {
+            if (c && typeof c === 'string' && c.trim()) catSet.add(c.trim());
+          }
+        }
+      }
+      const uniqueCategories = Array.from(catSet).sort((a, b) => a.localeCompare(b));
 
       this.store.setState({
         history: res.result,
-        prospects: res.result.leads || [],
-        categories: res.result.categories || [],
-        registers: res.result.documents || [],
-        trash: res.result.trash || [],
-        summary: res.result.summary || {}
+        prospects: res.result?.leads || [],
+        categories: uniqueCategories,
+        registers: res.result?.documents || [],
+        trash: res.result?.trash || [],
+        summary: res.result?.summary || {}
       }, 'historyLoad');
       this.store.computeFilteredProspects();
     } catch (err) {
@@ -2750,11 +3127,24 @@ class App {
         }
       }
 
+      // Discover and sort all unique authority categories across all leads
+      const categorySet = new Set(res.categories || []);
+      for (const lead of leads) {
+        if (Array.isArray(lead.categories)) {
+          for (const c of lead.categories) {
+            if (c && typeof c === 'string' && c.trim()) {
+              categorySet.add(c.trim());
+            }
+          }
+        }
+      }
+      const uniqueCategories = Array.from(categorySet).sort((a, b) => a.localeCompare(b));
+
       this.store.setState({
         history: res,
         revision: data.revision,
         prospects: leads,
-        categories: res.categories || [],
+        categories: uniqueCategories,
         registers: res.documents || [],
         trash: res.trash || [],
         summary: res.summary || {}
