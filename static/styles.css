@@ -64,10 +64,10 @@
   --radius-lg: 12px;
   --radius-xl: 16px;
 
-  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
-  --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.7);
-  --shadow-glow: 0 0 16px var(--space-green-glow);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.15);
+  --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.2);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow-glow: 0 0 12px var(--space-green-glow);
 
   /* Layout */
   --header-height: 58px;
@@ -188,7 +188,7 @@ button {
   height: var(--header-height);
   background-color: var(--bg-surface);
   border-bottom: 1px solid var(--border-medium);
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   backdrop-filter: blur(12px);
 }
 
@@ -305,7 +305,7 @@ button {
   color: var(--text-primary);
   background-color: var(--bg-surface);
   border: 1px solid var(--space-green-border);
-  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: none;
 }
 
 .nav-tab.active .nav-icon {
@@ -680,7 +680,7 @@ button {
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   padding: 12px 16px;
   margin-bottom: 0;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45);
+  box-shadow: none;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -725,7 +725,7 @@ button {
   background-color: var(--bg-surface);
   color: var(--text-primary);
   border: 1px solid var(--border-medium);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  box-shadow: none;
 }
 
 .tab-count-pill {
@@ -923,7 +923,7 @@ button {
   background-color: var(--bg-surface);
   border: 1px solid var(--border-medium);
   border-radius: var(--radius-md);
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
   padding: 10px;
   display: flex;
   flex-direction: column;
@@ -1221,7 +1221,7 @@ button {
   background-color: var(--space-green);
   color: var(--text-inverse);
   border-color: var(--space-green);
-  box-shadow: 0 0 8px var(--space-green-glow);
+  box-shadow: none;
 }
 
 /* ==========================================================================
@@ -1302,7 +1302,7 @@ button {
   border-top: none;
   border-bottom: none;
   border-radius: 0;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
   position: relative;
   overflow: visible;
 }
@@ -1337,7 +1337,7 @@ button {
   user-select: none;
   border-top: 1px solid var(--border-medium);
   border-bottom: 2px solid var(--space-green);
-  box-shadow: inset 0 -2px 0 var(--space-green), 0 4px 12px rgba(0, 0, 0, 0.45);
+  box-shadow: inset 0 -2px 0 var(--space-green);
 }
 
 .leads-table tbody tr {
