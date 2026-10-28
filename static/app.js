@@ -274,6 +274,7 @@ class Store {
       search: '',
       selectedState: '', // '' for all, or 2-letter state code (e.g. 'TX')
       category: '',
+      selectedCategories: [], // Array of selected authority scope strings
       country: '',
       movers: true,
       pageSize: 25,
@@ -325,10 +326,17 @@ class Store {
   }
 
   setFilters(filters) {
-    const next = { ...this.state, ...filters, page: 1 };
+    const normalized = { ...filters };
+    if (Array.isArray(normalized.selectedCategories)) {
+      normalized.category = normalized.selectedCategories.length === 1 ? normalized.selectedCategories[0] : '';
+    } else if (normalized.category !== undefined && normalized.selectedCategories === undefined) {
+      normalized.selectedCategories = normalized.category ? [normalized.category] : [];
+    }
+
+    const next = { ...this.state, ...normalized, page: 1 };
     this.state = next;
     this.computeFilteredProspects();
-    this.notify('filterChange', filters);
+    this.notify('filterChange', normalized);
   }
 
   setPage(page) {
@@ -386,7 +394,7 @@ class Store {
   }
 
   computeFilteredProspects() {
-    const { prospects, view, search, selectedState, category, country, movers } = this.state;
+    const { prospects, view, search, selectedState, category, selectedCategories, country, movers } = this.state;
     if (!prospects || !prospects.length) {
       this.state.filteredProspects = [];
       return;
@@ -394,6 +402,12 @@ class Store {
 
     const query = (search || '').trim().toLowerCase();
     const queryTokens = query ? query.split(/\s+/).filter(Boolean) : [];
+
+    // Normalize selected authority categories (supports multiselect array and legacy string)
+    const selectedCats = Array.isArray(selectedCategories) && selectedCategories.length > 0
+      ? selectedCategories
+      : (category ? [category] : []);
+    const selectedCatsLower = selectedCats.map(c => (c || '').trim().toLowerCase());
 
     const filtered = prospects.filter(lead => {
       // 1. View / Decision tab filter
@@ -409,11 +423,12 @@ class Store {
         if (dec !== 'excluded') return false;
       }
 
-      // 2. Category / Authority Scope filter
-      if (category) {
-        if (!Array.isArray(lead.categories)) return false;
-        const target = category.trim().toLowerCase();
-        if (!lead.categories.some(c => (c || '').trim().toLowerCase() === target)) return false;
+      // 2. Category / Authority Scope filter (multi-select)
+      if (selectedCatsLower.length > 0) {
+        if (!Array.isArray(lead.categories) || lead.categories.length === 0) return false;
+        const leadCatsLower = lead.categories.map(c => (c || '').trim().toLowerCase());
+        const matchesAny = selectedCatsLower.some(target => leadCatsLower.includes(target));
+        if (!matchesAny) return false;
       }
 
       // 3. Country filter
@@ -908,6 +923,20 @@ class FilterBarComponent {
     this.clearBtn = document.getElementById('clear');
     this.visibleBadge = document.getElementById('visible-count');
 
+    // Authority Scope Multi-Select
+    this.authorityMultiselect = document.getElementById('authority-multiselect');
+    this.authorityTrigger = document.getElementById('authority-trigger');
+    this.authorityTriggerText = document.getElementById('authority-trigger-text');
+    this.authorityTriggerBadge = document.getElementById('authority-trigger-badge');
+    this.authorityDropdown = document.getElementById('authority-dropdown');
+    this.authoritySearchInput = document.getElementById('authority-search-input');
+    this.authoritySelectAllBtn = document.getElementById('authority-select-all');
+    this.authorityClearAllBtn = document.getElementById('authority-clear-all');
+    this.authorityOptionsList = document.getElementById('authority-options-list');
+    this.authorityCountSummary = document.getElementById('authority-count-summary');
+    this.authorityApplyBtn = document.getElementById('authority-apply-btn');
+    this.authoritySearchQuery = '';
+
     // Export buttons
     this.exportCsvBtn = document.getElementById('export-csv');
     this.exportDotsBtn = document.getElementById('export-dots');
@@ -926,6 +955,7 @@ class FilterBarComponent {
 
   init() {
     this.renderStateChips();
+    this.initAuthorityMultiselect();
 
     // View tabs
     this.viewTabs.forEach(tab => {
@@ -1112,16 +1142,20 @@ class FilterBarComponent {
     if (this.categorySelect) this.categorySelect.value = '';
     if (this.countrySelect) this.countrySelect.value = '';
     if (this.moversCheckbox) this.moversCheckbox.checked = true;
+    if (this.authoritySearchInput) this.authoritySearchInput.value = '';
+    this.authoritySearchQuery = '';
 
     this.store.setFilters({
       search: '',
       selectedState: '',
       category: '',
+      selectedCategories: [],
       country: '',
       movers: true,
       view: 'relevant'
     });
     this.renderStateChips();
+    this.closeAuthorityDropdown();
     Toast.info('Active filters reset');
   }
 
@@ -1154,26 +1188,8 @@ class FilterBarComponent {
       this.visibleBadge.textContent = `${format(count)} ${count === 1 ? 'carrier' : 'carriers'} matching`;
     }
 
-    // 4. Populate category / authority scope options
-    if (this.categorySelect && state.categories?.length) {
-      const currentVal = this.store.getState().category || this.categorySelect.value;
-      const existingOptions = Array.from(this.categorySelect.options).slice(1).map(o => o.value);
-      const isUpToDate = existingOptions.length === state.categories.length &&
-        state.categories.every((cat, i) => existingOptions[i] === cat);
-      if (!isUpToDate) {
-        this.categorySelect.innerHTML = '<option value="">All authority scopes</option>';
-        const frag = document.createDocumentFragment();
-        for (const cat of state.categories) {
-          const opt = document.createElement('option');
-          opt.value = cat;
-          opt.textContent = cat;
-          if (cat === currentVal) opt.selected = true;
-          frag.appendChild(opt);
-        }
-        this.categorySelect.appendChild(frag);
-        if (currentVal) this.categorySelect.value = currentVal;
-      }
-    }
+    // 4. Update multi-select Authority Scopes
+    this.syncAuthorityScopes(state);
 
     // 5. Selection bar update
     const selCount = state.selectedDots.size;
@@ -1228,6 +1244,235 @@ class FilterBarComponent {
     }
 
     dialog.showModal();
+  }
+
+  initAuthorityMultiselect() {
+    if (!this.authorityMultiselect) return;
+
+    if (this.authorityTrigger) {
+      this.authorityTrigger.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (this.authorityDropdown && !this.authorityDropdown.hidden) {
+          this.closeAuthorityDropdown();
+        } else {
+          this.openAuthorityDropdown();
+        }
+      });
+    }
+
+    // Close when clicking outside
+    document.addEventListener('click', (e) => {
+      if (this.authorityMultiselect && !this.authorityMultiselect.contains(e.target)) {
+        this.closeAuthorityDropdown();
+      }
+    });
+
+    // Close on Escape key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && this.authorityDropdown && !this.authorityDropdown.hidden) {
+        this.closeAuthorityDropdown();
+        if (this.authorityTrigger) this.authorityTrigger.focus();
+      }
+    });
+
+    // Search input
+    if (this.authoritySearchInput) {
+      this.authoritySearchInput.addEventListener('input', (e) => {
+        this.authoritySearchQuery = (e.target.value || '').trim().toLowerCase();
+        this.filterAuthorityOptions();
+      });
+    }
+
+    // Select All
+    if (this.authoritySelectAllBtn) {
+      this.authoritySelectAllBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const { categories } = this.store.getState();
+        const all = (categories || []).slice();
+        this.store.setFilters({ selectedCategories: all });
+      });
+    }
+
+    // Clear All
+    if (this.authorityClearAllBtn) {
+      this.authorityClearAllBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.store.setFilters({ selectedCategories: [] });
+      });
+    }
+
+    // Option checkbox toggle (event delegation)
+    if (this.authorityOptionsList) {
+      this.authorityOptionsList.addEventListener('change', (e) => {
+        const cb = e.target.closest('.multiselect-checkbox');
+        if (!cb) return;
+        const cat = cb.value;
+        const { selectedCategories } = this.store.getState();
+        const set = new Set(selectedCategories || []);
+        if (cb.checked) {
+          set.add(cat);
+        } else {
+          set.delete(cat);
+        }
+        this.store.setFilters({ selectedCategories: Array.from(set) });
+      });
+    }
+
+    // Done button
+    if (this.authorityApplyBtn) {
+      this.authorityApplyBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        this.closeAuthorityDropdown();
+      });
+    }
+  }
+
+  openAuthorityDropdown() {
+    if (!this.authorityDropdown) return;
+    this.authorityDropdown.hidden = false;
+    if (this.authorityTrigger) {
+      this.authorityTrigger.setAttribute('aria-expanded', 'true');
+      this.authorityTrigger.classList.add('active');
+    }
+    if (this.authoritySearchInput) {
+      this.authoritySearchInput.focus();
+    }
+    this.syncFilterDeckHeight();
+  }
+
+  closeAuthorityDropdown() {
+    if (!this.authorityDropdown || this.authorityDropdown.hidden) return;
+    this.authorityDropdown.hidden = true;
+    if (this.authorityTrigger) {
+      this.authorityTrigger.setAttribute('aria-expanded', 'false');
+      this.authorityTrigger.classList.remove('active');
+    }
+    this.syncFilterDeckHeight();
+  }
+
+  filterAuthorityOptions() {
+    if (!this.authorityOptionsList) return;
+    const query = this.authoritySearchQuery;
+    const items = this.authorityOptionsList.querySelectorAll('.multiselect-option');
+    let visibleCount = 0;
+    items.forEach(item => {
+      const cat = (item.getAttribute('data-category') || '').toLowerCase();
+      const match = !query || cat.includes(query);
+      item.hidden = !match;
+      item.style.display = match ? 'flex' : 'none';
+      if (match) visibleCount++;
+    });
+
+    const emptyMsg = this.authorityOptionsList.querySelector('.multiselect-search-empty');
+    if (visibleCount === 0) {
+      if (!emptyMsg) {
+        const div = document.createElement('div');
+        div.className = 'multiselect-search-empty';
+        div.textContent = `No authority scopes matching "${this.authoritySearchInput?.value || ''}"`;
+        this.authorityOptionsList.appendChild(div);
+      }
+    } else if (emptyMsg) {
+      emptyMsg.remove();
+    }
+  }
+
+  escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  syncAuthorityScopes(state) {
+    const categories = state.categories || [];
+    const selectedCats = Array.isArray(state.selectedCategories) ? state.selectedCategories : [];
+    const selectedSet = new Set(selectedCats);
+
+    // Compute carrier frequency for each category
+    const counts = new Map();
+    for (const p of state.prospects || []) {
+      if (Array.isArray(p.categories)) {
+        for (const c of p.categories) {
+          const norm = (c || '').trim();
+          counts.set(norm, (counts.get(norm) || 0) + 1);
+        }
+      }
+    }
+
+    // Render options list
+    if (this.authorityOptionsList) {
+      if (categories.length === 0) {
+        this.authorityOptionsList.innerHTML = `
+          <div class="multiselect-empty">
+            <span>No authority scopes detected. Upload daily register PDFs to populate.</span>
+          </div>
+        `;
+      } else {
+        this.authorityOptionsList.innerHTML = categories.map(cat => {
+          const isChecked = selectedSet.has(cat);
+          const count = counts.get(cat) || 0;
+          const escaped = this.escapeHtml(cat);
+          return `
+            <label class="multiselect-option ${isChecked ? 'selected' : ''}" data-category="${escaped.toLowerCase()}">
+              <span class="custom-checkbox">
+                <input type="checkbox" class="multiselect-checkbox" value="${escaped}" ${isChecked ? 'checked' : ''} aria-label="${escaped}">
+                <span class="checkbox-mark"></span>
+              </span>
+              <span class="option-text" title="${escaped}">${escaped}</span>
+              <span class="option-carrier-count monospace" title="${count.toLocaleString()} carriers with this authority">${count.toLocaleString()}</span>
+            </label>
+          `;
+        }).join('');
+        this.filterAuthorityOptions();
+      }
+    }
+
+    // Update count summary in dropdown footer
+    if (this.authorityCountSummary) {
+      if (selectedCats.length === 0) {
+        this.authorityCountSummary.textContent = categories.length > 0 
+          ? `All ${categories.length} authority scopes active`
+          : 'All authority scopes active';
+      } else if (selectedCats.length === categories.length && categories.length > 0) {
+        this.authorityCountSummary.textContent = `All ${categories.length} authority scopes selected`;
+      } else {
+        this.authorityCountSummary.textContent = `${selectedCats.length} of ${categories.length} selected`;
+      }
+    }
+
+    // Update trigger button
+    if (this.authorityTriggerText) {
+      if (selectedCats.length === 0 || (selectedCats.length === categories.length && categories.length > 0)) {
+        this.authorityTriggerText.textContent = 'All authority scopes';
+        if (this.authorityTrigger) this.authorityTrigger.title = 'Filtering by all authority scopes (no restriction)';
+      } else if (selectedCats.length === 1) {
+        const name = selectedCats[0];
+        this.authorityTriggerText.textContent = name.length > 30 ? `${name.substring(0, 28)}…` : name;
+        if (this.authorityTrigger) this.authorityTrigger.title = `Filtered by: ${name}`;
+      } else {
+        this.authorityTriggerText.textContent = `${selectedCats.length} scopes selected`;
+        if (this.authorityTrigger) this.authorityTrigger.title = `Filtered by ${selectedCats.length} scopes: ${selectedCats.join(', ')}`;
+      }
+    }
+
+    if (this.authorityTriggerBadge) {
+      const showBadge = selectedCats.length > 0 && selectedCats.length < categories.length;
+      this.authorityTriggerBadge.hidden = !showBadge;
+      if (showBadge) {
+        this.authorityTriggerBadge.textContent = selectedCats.length.toLocaleString();
+      }
+    }
+
+    // Keep hidden <select id="category"> in sync for backward compatibility
+    if (this.categorySelect) {
+      this.categorySelect.innerHTML = categories.map(cat => {
+        const isSelected = selectedSet.has(cat);
+        const escaped = this.escapeHtml(cat);
+        return `<option value="${escaped}" ${isSelected ? 'selected' : ''}>${escaped}</option>`;
+      }).join('');
+    }
   }
 }
 

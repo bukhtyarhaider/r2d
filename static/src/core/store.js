@@ -25,6 +25,7 @@ export class Store {
       search: '',
       selectedState: '', // '' for all, or 2-letter state code (e.g. 'TX')
       category: '',
+      selectedCategories: [], // Array of selected authority scope strings
       country: '',
       movers: true,
       pageSize: 25,
@@ -76,10 +77,17 @@ export class Store {
   }
 
   setFilters(filters) {
-    const next = { ...this.state, ...filters, page: 1 };
+    const normalized = { ...filters };
+    if (Array.isArray(normalized.selectedCategories)) {
+      normalized.category = normalized.selectedCategories.length === 1 ? normalized.selectedCategories[0] : '';
+    } else if (normalized.category !== undefined && normalized.selectedCategories === undefined) {
+      normalized.selectedCategories = normalized.category ? [normalized.category] : [];
+    }
+
+    const next = { ...this.state, ...normalized, page: 1 };
     this.state = next;
     this.computeFilteredProspects();
-    this.notify('filterChange', filters);
+    this.notify('filterChange', normalized);
   }
 
   setPage(page) {
@@ -137,7 +145,7 @@ export class Store {
   }
 
   computeFilteredProspects() {
-    const { prospects, view, search, selectedState, category, country, movers } = this.state;
+    const { prospects, view, search, selectedState, category, selectedCategories, country, movers } = this.state;
     if (!prospects || !prospects.length) {
       this.state.filteredProspects = [];
       return;
@@ -145,6 +153,12 @@ export class Store {
 
     const query = (search || '').trim().toLowerCase();
     const queryTokens = query ? query.split(/\s+/).filter(Boolean) : [];
+
+    // Normalize selected authority categories (supports multiselect array and legacy string)
+    const selectedCats = Array.isArray(selectedCategories) && selectedCategories.length > 0
+      ? selectedCategories
+      : (category ? [category] : []);
+    const selectedCatsLower = selectedCats.map(c => (c || '').trim().toLowerCase());
 
     const filtered = prospects.filter(lead => {
       // 1. View / Decision tab filter
@@ -160,11 +174,12 @@ export class Store {
         if (dec !== 'excluded') return false;
       }
 
-      // 2. Category / Authority Scope filter
-      if (category) {
-        if (!Array.isArray(lead.categories)) return false;
-        const target = category.trim().toLowerCase();
-        if (!lead.categories.some(c => (c || '').trim().toLowerCase() === target)) return false;
+      // 2. Category / Authority Scope filter (multi-select)
+      if (selectedCatsLower.length > 0) {
+        if (!Array.isArray(lead.categories) || lead.categories.length === 0) return false;
+        const leadCatsLower = lead.categories.map(c => (c || '').trim().toLowerCase());
+        const matchesAny = selectedCatsLower.some(target => leadCatsLower.includes(target));
+        if (!matchesAny) return false;
       }
 
       // 3. Country filter

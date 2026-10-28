@@ -151,12 +151,40 @@
 
         <div class="filter-bottom-row">
           <div class="filter-controls">
-            <div class="select-group">
+            <div class="select-group multiselect-group" id="authority-multiselect">
               <span class="select-icon" data-lucide="sliders-horizontal" data-size="13"></span>
-              <label for="category">Authority Scope</label>
-              <select id="category">
-                <option value="">All authority scopes</option>
-              </select>
+              <label id="authority-label">Authority Scope</label>
+              
+              <button type="button" class="multiselect-trigger" id="authority-trigger" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="authority-label authority-trigger-text" title="Click to filter by multiple authority scopes">
+                <span class="multiselect-trigger-text" id="authority-trigger-text">All authority scopes</span>
+                <span class="multiselect-trigger-badge" id="authority-trigger-badge" hidden>0</span>
+                <span class="multiselect-trigger-arrow" data-lucide="chevron-down" data-size="13"></span>
+              </button>
+
+              <!-- Dropdown Multi-Select Menu -->
+              <div class="multiselect-dropdown" id="authority-dropdown" role="listbox" aria-multiselectable="true" hidden>
+                <div class="multiselect-header">
+                  <div class="multiselect-search-box">
+                    <span class="multiselect-search-icon" data-lucide="search" data-size="12"></span>
+                    <input type="search" id="authority-search-input" placeholder="Search authorities…" aria-label="Search authority scopes">
+                  </div>
+                  <div class="multiselect-quick-actions">
+                    <button type="button" class="btn-link-action" id="authority-select-all">Select All</button>
+                    <span class="action-divider">·</span>
+                    <button type="button" class="btn-link-action" id="authority-clear-all">Clear</button>
+                  </div>
+                </div>
+                <div class="multiselect-options-list" id="authority-options-list" tabindex="-1">
+                  <!-- Populated dynamically with checkboxes -->
+                </div>
+                <div class="multiselect-footer">
+                  <span class="multiselect-count-summary" id="authority-count-summary">All authority scopes active</span>
+                  <button type="button" class="btn btn-secondary btn-xs" id="authority-apply-btn">Done</button>
+                </div>
+              </div>
+
+              <!-- Hidden select element for DOM/testing backwards compatibility -->
+              <select id="category" hidden style="display: none;" multiple aria-hidden="true"></select>
             </div>
 
             <div class="select-group">
